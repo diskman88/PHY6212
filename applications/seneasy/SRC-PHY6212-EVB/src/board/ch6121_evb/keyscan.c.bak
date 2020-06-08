@@ -1,0 +1,205 @@
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <drv_common.h>
+#include <pinmux.h>
+#include <csi_config.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <drv_irq.h>
+#include <drv_gpio.h>
+#include <drv_pmu.h>
+#include <dw_gpio.h>
+#include <pin_name.h>
+#include <clock.h>
+#include <soc.h>
+#include "msg.h"
+#include "event.h"
+
+#define KSCAN_R00_P00	(1 << 0)
+#define KSCAN_R01_P02	(1 << 1)
+#define KSCAN_R02_P25	(1 << 2)
+#define KSCAN_R03_P19	(1 << 3)
+#define KSCAN_R04_P10	(1 << 4)
+#define KSCAN_R05_P18	(1 << 5)
+#define KSCAN_R06_P23 	(1 << 6)
+#define KSCAN_R07_P32	(1 << 7)
+#define KSCAN_R08_P34	(1 << 8)
+#define KSCAN_R09_P27	(1 << 9)
+#define KSCAN_R10_P05	(1 << 10)
+#define KSCAN_R11_P07	(1 << 11)
+#define KSCAN_R12_P12	(1 << 12)
+#define KSCAN_R13_P19	(1 << 13)
+#define KSCAN_R14_P22	(1 << 14)
+#define KSCAN_R15_P29	(1 << 15)
+
+#define KSCAN_C00_P01	(1 << 0)
+#define KSCAN_C01_P03	(1 << 1)
+#define KSCAN_C02_P14	(1 << 2)
+#define KSCAN_C03_P24	(1 << 3)
+#define KSCAN_C04_P09	(1 << 4)
+#define KSCAN_C05_P20	(1 << 5)
+#define KSCAN_C06_P33 (1 << 6)
+#define KSCAN_C07_P31	(1 << 7)
+#define KSCAN_C08_P28	(1 << 8)
+#define KSCAN_C09_P04	(1 << 9)
+#define KSCAN_C10_P06	(1 << 10)
+#define KSCAN_C11_P11	(1 << 11)
+#define KSCAN_C12_P13	(1 << 12)
+#define KSCAN_C13_P21	(1 << 13)
+#define KSCAN_C14_P26	(1 << 14)
+#define KSCAN_C15_P30	(1 << 15)
+#define KSCAN_C16_P16	(1 << 16)
+#define KSCAN_C17_P17	(1 << 17)
+
+typedef struct
+{
+	union 
+	{
+		uint32_t reg;
+		struct 
+		{
+			uint32_t debounce:8;
+			uint32_t polarity:1;
+			uint32_t resv:1;
+			uint32_t auto_scan:1;
+			uint32_t ignore_multi_key:1;
+			uint32_t col_en:18;
+			uint32_t it_en:1;
+			uint32_t en:1;
+		};
+		
+	};
+}kscan_config_t;
+
+typedef struct 
+{
+	/* data */
+	union 
+	{
+		volatile uint32_t regs[9];
+		volatile uint16_t rows[18];
+	};
+}kscan_matrix_t;
+
+
+#define IOMUX_KSCAN_ROW_REG		(*(volatile uint32_t *)(0x40003800 + 0x4C))
+#define IOMUX_KSCAN_COL_REG		(*(volatile uint32_t *)(0x40003800 + 0x50))
+
+#define KSCAN_INPUT_EN_REG		(*(volatile uint32_t *)(0x40024000 + 0xF0))
+#define KSCAN_CONFIG_REG		(*(volatile uint32_t *)(0x40024000 + 0xC0))
+#define KSCAN_FLAG_REG			(*(volatile uint32_t *)(0x40024000 + 0xC4))
+#define KSCAN_FLAG_INT			0x00000001UL
+#define KSCAN_FLAG_INPUTS		0x00001FFEUL
+#define KSCAN_FLAG_READY		0x00002000UL
+#define KSCNA_STATUS_REG		(*(volatile uint32_t *)(0x40024000 + 0xC8))
+#define KSCAN_STATUS_ONE_KEY_COL	0x0000001FUL
+#define KSCAN_STATUS_ONE_KEY_ROW	0x000003E0UL
+#define KSCAN_STATUS_MULTI_KEY		0x00000C00UL
+#define KSCAN_STATUS_SCANNING		0x00001000UL
+
+#define KSCAN_KEY_MATRIX		((kscan_matrix_t *)(0x40024000 + 0xCC))
+
+#define kscan_clear_it()		KSCAN_FLAG_REG |= KSCAN_FLAG_INT
+#define kscan_is_ready()		(KSCAN_FLAG_REG & KSCAN_FLAG_READY)
+#define kscan_clear_ready()		(KSCAN_FLAG_REG |= KSCAN_FLAG_READY)
+
+uint16_t key_matrix[18];
+	
+void kscan_iomux_set()
+{
+	// disconnect to the gpio
+	*(volatile uint32_t *)(0x40003800 + 0x14) = 0;
+	// connect to kscan
+	IOMUX_KSCAN_ROW_REG = (KSCAN_R00_P00) | (KSCAN_R01_P02) | (KSCAN_R07_P32) | (KSCAN_R08_P34);
+	IOMUX_KSCAN_COL_REG = (KSCAN_C00_P01) | (KSCAN_C01_P03) | (KSCAN_C07_P31) | (KSCAN_C06_P33);
+	phy_gpio_pull_set(GPIO_P00, PULL_DOWN);
+	phy_gpio_pull_set(GPIO_P02, PULL_DOWN);
+	phy_gpio_pull_set(GPIO_P32, PULL_DOWN);
+	phy_gpio_pull_set(GPIO_P34, PULL_DOWN);
+	phy_gpio_pull_set(GPIO_P01, PULL_DOWN);
+	phy_gpio_pull_set(GPIO_P03, PULL_DOWN);
+	phy_gpio_pull_set(GPIO_P31, PULL_DOWN);
+	phy_gpio_pull_set(GPIO_P33, PULL_DOWN);
+}
+
+void kscan_iomux_reset()
+{
+	// IOMUX_KSCAN_ROW_REG &= ~((KSCAN_R00_P00) | (KSCAN_R01_P02) | (KSCAN_R07_P32) | (KSCAN_R08_P34));
+	// IOMUX_KSCAN_COL_REG &= ~((KSCAN_C00_P01) | (KSCAN_C01_P03) | (KSCAN_C07_P31) | (KSCAN_C06_P33));
+	// disconnect to kscan
+	IOMUX_KSCAN_COL_REG = 0;
+	IOMUX_KSCAN_ROW_REG = 0;
+	// connnect to gpio
+	*(volatile uint32_t *)(0x40003800 + 0x14) = 0x0000F00F;
+}
+
+static void KSCAN_IRQHandler(void);
+void kscan_config()
+{
+	kscan_config_t cfg;
+
+	cfg.reg = 0;
+	cfg.debounce = 100;
+	cfg.polarity = 1;
+	cfg.auto_scan = 1;
+	cfg.ignore_multi_key = 0;
+	cfg.col_en = (KSCAN_C00_P01) | (KSCAN_C01_P03) | (KSCAN_C06_P33) | (KSCAN_C07_P31);
+	cfg.it_en = 1;
+	cfg.en = 1;
+	KSCAN_CONFIG_REG = cfg.reg;
+
+	KSCAN_INPUT_EN_REG = (KSCAN_R00_P00) | (KSCAN_R01_P02) | (KSCAN_R07_P32) | (KSCAN_R08_P34);
+
+	drv_irq_register(KSCAN_IRQ, KSCAN_IRQHandler);
+	drv_irq_enable(KSCAN_IRQ);
+}
+
+
+
+void kscan_read_keys(uint16_t * col)
+{
+	for (int i = 0; i < 18; i++) {
+		col[i] = KSCAN_KEY_MATRIX->rows[i];
+	}
+}
+
+gpio_pin_handle_t kscan_rows[4];
+gpio_pin_handle_t kscan_cols[4];
+
+void kscan_init()
+{
+	// kscan_iomux_set();
+	// kscan_config();
+	kscan_rows[0] = csi_gpio_pin_initialize(GPIO_P00, NULL);
+	kscan_rows[1] = csi_gpio_pin_initialize(GPIO_P01, NULL);
+	kscan_rows[2] = csi_gpio_pin_initialize(GPIO_P02, NULL);
+	kscan_rows[3] = csi_gpio_pin_initialize(GPIO_P03, NULL);
+
+	kscan_cols[0] = csi_gpio_pin_initialize(GPIO_P15, NULL);
+	kscan_cols[1] = csi_gpio_pin_initialize(GPIO_P14, NULL);
+	kscan_cols[2] = csi_gpio_pin_initialize(GPIO_P13, NULL);
+	kscan_cols[3] = csi_gpio_pin_initialize(GPIO_P34, NULL);
+
+	for(int i = 0; i < 4; i++) {
+		csi_gpio_pin_config(kscan_rows[i], GPIO_MODE_PULLDOWN, GPIO_DIRECTION_INPUT);
+		csi_gpio_pin_config(kscan_cols[i], GPIO_MODE_PULLUP, GPIO_DIRECTION_OUTPUT);
+
+		csi_gpio_pin_write(kscan_cols[i], 1);
+	}
+}
+
+static void KSCAN_IRQHandler(void)
+{
+	kscan_clear_it();
+	kscan_clear_ready();
+	kscan_read_keys(key_matrix);
+	io_msg_t msg;
+	msg.type = MSG_BUTTON;
+	msg.event = 0;
+	msg.lpMsgBuff = key_matrix;
+	io_send_message(&msg);
+	app_event_set(APP_EVENT_IO);
+}
+
+
