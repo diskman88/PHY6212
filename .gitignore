@@ -1,0 +1,6 @@
+out/
+.vscode/
+**/*.d
+**/*.o
+csi/out/
+yoc_sdk/

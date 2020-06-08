@@ -1,0 +1,67 @@
+{
+    "variant": {
+        "factoryKey": "factoryKey.txt",
+        "devcieName": "devcieName.txt",
+        "cop_mac": "mac.txt",
+        "kp": "kp.txt",
+        "data": "data.txt"
+    },
+    "flash": [
+        {
+            "order": 0,
+            "kp": "$kp$"
+        },
+        {
+            "order": 1,
+            "image": "product.hex",
+            "blocks": [
+                {
+                    "address": 3000110,
+                    "size": 100,
+                    "data": "$data$"
+                }
+            ]
+        },
+        {
+            "order": 2,
+            "check_string": "PASS",
+            "check_timeout": 100,
+            "command": {
+                "prompt": ">",
+                "timeout": 100,
+                "detect": "A",
+                "commands": [
+                    {
+                        "cmd": "set factorykey $factorykey$",
+                        "timeout": 100,
+                        "result": "OK"
+                    },
+                    {
+                        "cmd": "asdfasdfasl"
+                    },
+                    {
+                        "cmd": "asdfaksdjfasd"
+                    }
+                ]
+            },
+            "image": "test.hex",
+            "blocks": [
+                {
+                    "offset": 1000,
+                    "size": 100,
+                    "data": {
+                        "mac": "$cop_mac$",
+                        "deviceName": "$devcieName$",
+                        "cid": "$cid$",
+                        "custom": "$custom$"
+                    }
+                },
+                {
+                    "offset": 2000,
+                    "size": 100,
+                    "data": "ddddd"
+                }
+            ]
+        }
+    ]
+}

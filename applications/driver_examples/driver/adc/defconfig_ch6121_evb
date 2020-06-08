@@ -1,0 +1,27 @@
+###############################################################################
+#
+# Copyright (C) 2017 C-SKY Microsystems Co. All rights reserved.
+#
+###############################################################################
+
+############################## YoC Libs ###########################
+CONFIG_LIBS=drivers yoc_kernel lpm kv cli at csi boards_ch6121 libs bt_host ble_profile drivers_bt
+
+#############################YoC Net Driver ###########################
+#CONFIG_NET_DRIVER=enc28j60
+#CONFIG_NET_DRIVER=esp8266
+#CONFIG_NET_DRIVER=sim800c
+
+#############################YoC IoT ###########################
+#CONFIG_IOT_LIBS=iot_alimqtt_tls
+#CONFIG_IOT_LIBS=iot_alicoap_psk
+#CONFIG_IOT_LIBS=iot_alicoap_dtls
+#CONFIG_IOT_LIBS=iot_onenet
+#CONFIG_IOT_LIBS=iot_lwm2m
+
+################################### Misc #######################################
+CONFIG_ARCH_ARM=y
+CONFIG_CHIP_VENDOR=phyplus
+CONFIG_CHIP_NAME=ch6121
+CONFIG_BOARD_NAME=ch6121_evb
+CONFIG_CPU_CM0=y

@@ -1,0 +1,58 @@
+###############################################################################
+#
+# Copyright (C) 2017 C-SKY Microsystems Co. All rights reserved.
+#
+###############################################################################
+#################################### Debug Config #############################
+#CONFIG_DEBUG=y
+CONFIG_PARAM_NOT_CHECK=y
+CONFIG_CLI=y
+#CONFIG_WDT=y
+# log level 0 disable 1 fatal 2 error 3 warning 4 info 5 debug
+CONFIG_LOGLEVEL_DEFAULT=4
+############################### Modules Config ###############################
+CONFIG_KV_SMART=y
+CONFIG_AT=y
+#####Please disable CONFIG_DEBUG while enable AT OTA #########################
+CONFIG_AT_OTA=y
+CONFIG_FOTA_PIECE_SIZE=2048
+
+#################################### Drivers Config ############################
+CONFIG_SPIFLASH_DRV=y
+CONFIG_GPIO_UART=y
+
+################################### Misc #######################################
+CONFIG_ARCH_ARM=y
+CONFIG_CPU_CM0=y
+CONFIG_CHIP_VENDOR_PHYPLUS=y
+CONFIG_KERNEL_NO_MM=y
+CONFIG_KERNEL_NO_DYN_ALLOC=y
+
+#
+# Chip options
+#
+CONFIG_CHIP_CH6121=y
+CONFIG_CHIP_VENDOR_STR="phyplus"
+CONFIG_CHIP_NAME_STR="ch6121"
+CONFIG_BOARD_NAME_STR="ch6121_evb"
+CONFIG_SUPPORT_TSPEND=y
+#
+# Rtos kernel options
+#
+CONFIG_KERNEL_RHINO=y
+CONFIG_SYSTICK_HZ=1000
+#
+# OS support features
+#
+CONFIG_HAVE_VIC=y
+CONFIG_ARCH_INTERRUPTSTACK=2048
+CONFIG_DEBUG_LEVEL="-g"
+CONFIG_OPTIMIZE_LEVEL="-Os"
+CONFIG_IDLE_TASK_STACK_SIZE=512
+CONFIG_KERNEL_TIMER_STACK_SIZE=2048
+
+################################### Bluetooth #######################################
+##BT CONFIG
+CONFIG_BT=y
+CONFIG_BT_PERIPHERAL=y
+
