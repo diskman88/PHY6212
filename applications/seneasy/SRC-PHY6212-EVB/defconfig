@@ -5,7 +5,7 @@
 ###############################################################################
 
 ############################## YoC Libs ###########################
-CONFIG_LIBS=drivers yoc_kernel lpm kv cli at csi boards_ch6121 libs mod_bt ble_profile drivers_bt
+CONFIG_LIBS=drivers yoc_kernel lpm kv cli at csi boards_ch6121 libs bt_host ble_profile drivers_bt
 
 #############################YoC Net Driver ###########################
 #CONFIG_NET_DRIVER=enc28j60

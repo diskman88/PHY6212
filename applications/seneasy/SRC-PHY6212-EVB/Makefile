@@ -72,6 +72,9 @@ startup: all
 all: image hexfiles
 ifeq ($(CONFIG_CPU_CM0),y)
 	$(CPRE) $(READELF) -S yoc.elf
+	$(CPRE) cp $(YOC_DIR)/tools/$(CONFIG_BOARD_NAME)/showmap.bsh .
+	$(CPRE) ./showmap.bsh
+	$(CPRE) rm showmap.bsh
 else
 	@bash $(YOC_DIR)/tools/build/showmap.bsh
 endif
@@ -94,18 +97,11 @@ endif
 L_LDFLAGS += -T $(TARGETS_LD_SCRIPT)
 L_LDFLAGS += -L $(YOC_SDK)lib -L $(YOC_SDK)lib/prelibs
 
-include $(TARGETS_ROOT_PATH)/rom1Sym.mk
-
-test:
-	@echo $(IMAGE_FILE)
-	@echo $(MK_L_LIBS)
-	@echo $(MK_L_PRE_LIBS)
-
 image: $(IMAGE_FILE)
 $(IMAGE_FILE): $(MK_L_LIBS) $(MK_L_PRE_LIBS)
 	@ echo [INFO] Create $(BIN_NAME) images
 	$(CPRE) sh $(YOC_DIR)/tools/build/gen_ldfile.sh boards/$(CONFIG_BOARD_NAME)/configs/config.yaml $(TARGETS_LD_SCRIPT).S $(TARGETS_LD_SCRIPT)
-	$(CPRE) $(CC) -o $@.elf -Wl,--whole-archive $^ $(YOC_LIBS:%=-l%) $(THIRD_PARTY_LIBS) -Wl,--no-whole-archive $(L_LDFLAGS) -Wl,-zmax-page-size=1024
+	$(CPRE) $(CC) -o $@.elf -Wl,--whole-archive $^ $(YOC_LIBS:%=-l%) $(THIRD_PARTY_LIBS) -Wl,--no-whole-archive $(L_LDFLAGS) -Wl,-zmax-page-size=1024 $(TARGETS_ROOT_PATH)/rom1Sym.txt
 	$(CPRE) rm $(TARGETS_LD_SCRIPT)
 
 	$(CPRE) $(OBJDUMP) -d $@.elf > $@.asm
@@ -143,4 +139,4 @@ endif
 
 .PHONY:clean
 clean:
-	rm -fr out yoc.*
+	rm -fr out yoc.* generated
