@@ -28,6 +28,12 @@
 #include "pinmux.h"
 #include "pin_name.h"
 
+
+extern void registers_save(uint32_t * mem, uint32_t * addr, int size);
+extern void registers_restore(uint32_t * addr, uint32_t * mem, int size);
+
+static uint32_t pinmux_regs_saved[21];
+
 #define readl(addr) \
     ({ unsigned int __v = (*(volatile unsigned int *) (addr)); __v; })
 
@@ -49,7 +55,44 @@ void ioreuse_initial(void)
 */
 int32_t drv_pinmux_config(pin_name_e pin, pin_func_e pin_func)
 {
+/*
     if (pin_func == PIN_FUNC_GPIO) {
+        phy_gpio_fmux(pin, Bit_DISABLE);
+
+        if ((pin >= 4 && pin <= 15) || (pin >= 18 && pin <= 30)) {
+
+        } else if ((pin >= 16) && (pin <= 17)) {
+            phy_gpio_cfg_analog_io(pin, 0);
+        } else {
+            phy_gpio_pin0to3_pin31to34_control(pin, 1);
+        }
+    } else {
+        phy_gpio_fmux_set(pin, pin_func);
+    }
+
+    return 0;
+
+*/
+	if (pin_func == PIN_FUNC_GPIO) {
+        phy_gpio_fmux(pin, Bit_DISABLE);
+
+        if ((pin >= 4 && pin <= 15) || (pin >= 18 && pin <= 30)) {
+            /* do noting */
+        } else if ((pin >= 16) && (pin <= 17)) {
+            phy_gpio_cfg_analog_io(pin, 0);
+        } else {
+            phy_gpio_pin0to3_pin31to34_control(pin, 1);
+        }
+    } else {
+        if ((pin >= 4 && pin <= 15) || (pin >= 18 && pin <= 30)) {
+            /* do noting */
+        } else if ((pin >= 16) && (pin <= 17)) {
+            phy_gpio_cfg_analog_io(pin, 1);
+        } else {
+            phy_gpio_pin0to3_pin31to34_control(pin, 0);
+        }
+        phy_gpio_fmux_set(pin, pin_func);
+    }if (pin_func == PIN_FUNC_GPIO) {
         phy_gpio_fmux(pin, Bit_DISABLE);
 
         if ((pin >= 4 && pin <= 15) || (pin >= 18 && pin <= 30)) {
@@ -70,7 +113,7 @@ int32_t drv_pinmux_config(pin_name_e pin, pin_func_e pin_func)
         phy_gpio_fmux_set(pin, pin_func);
     }
 
-    return 0;
+	    return 0;
 }
 
 /**
@@ -138,4 +181,18 @@ void drv_pinmux_dwuart_restore(pin_name_e tx_pin, pin_name_e rx_pin)
 void drv_pinmux_reset(void)
 {
 }
+
+void csi_pinmux_prepare_sleep_action()
+{
+    uint32_t addr = 0x40003800;
+    registers_save(pinmux_regs_saved, (uint32_t *)addr, 21);
+}
+
+void csi_pinmux_wakeup_sleep_action()
+{
+    uint32_t addr = 0x40003800;
+    registers_save((uint32_t *)addr, pinmux_regs_saved, 21);
+}
+
+
 

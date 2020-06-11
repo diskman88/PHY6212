@@ -31,6 +31,8 @@
 #include <clock.h>
 
 extern int32_t drv_pin_config_mode(port_name_e port, uint8_t offset, gpio_mode_e pin_mode);
+extern void registers_save(uint32_t * mem, uint32_t * addr, int size);
+extern void registers_restore(uint32_t * addr, uint32_t * mem, int size);
 
 #define ERR_GPIO(errno) (CSI_DRV_ERRNO_GPIO_BASE | errno)
 #define GPIO_NULL_PARAM_CHK(para)    HANDLE_PARAM_CHK(para, ERR_GPIO(DRV_ERROR_PARAMETER))
@@ -63,6 +65,8 @@ extern int32_t target_gpio_pin_init(int32_t gpio_pin, uint32_t *port_idx);
 
 static dw_gpio_priv_t gpio_handle[CONFIG_GPIO_NUM];
 static dw_gpio_pin_priv_t gpio_pin_handle[CONFIG_GPIO_PIN_NUM];
+
+static uint32_t gpio_regs_saved[16];
 
 //
 // Functions
@@ -371,6 +375,22 @@ static void do_wakeup_sleep_action(void *handle)
     registers_restore(control_base, &gpio_handle->gpio_regs_saved[3], 4);
 }
 #endif
+
+
+
+
+void csi_gpio_prepare_sleep_action()
+{
+    uint32_t addr = 0x40008000;
+    registers_save(gpio_regs_saved, (uint32_t *)addr, 16);
+}
+
+void csi_gpio_wakeup_sleep_action()
+{
+    uint32_t addr = 0x40008000;
+    registers_save((uint32_t *)addr, gpio_regs_saved, 16);
+}
+
 
 /**
   \brief       Initialize GPIO handle.

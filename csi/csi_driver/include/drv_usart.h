@@ -397,6 +397,21 @@ uint32_t csi_usart_get_rx_count(usart_handle_t handle);
 int32_t csi_usart_power_control(usart_handle_t handle, csi_power_stat_e state);
 
 /**
+  \brief       csi usart prepare before sleep
+  \param[in]   idx  usart index.
+  \return      void
+*/
+void csi_usart_prepare_sleep_action(int32_t idx);
+
+/**
+  \brief       csi usart resume after sleep
+  \param[in]   idx  usart index.
+  \return      void
+*/
+void csi_usart_wakeup_sleep_action(int32_t idx);
+
+
+/**
   \brief       config usart flow control type.
   \param[in]   handle  usart handle to operate.
   \param[in]   flowctrl_type   flow control type.\ref usart_flowctrl_type_e.

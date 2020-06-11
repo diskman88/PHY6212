@@ -90,6 +90,22 @@ int32_t csi_gpio_pin_uninitialize(gpio_pin_handle_t handle);
 */
 int32_t csi_gpio_power_control(gpio_pin_handle_t handle, csi_power_stat_e state);
 
+
+/**
+  \brief       gpio prepare before sleep
+  \param[in]   void
+  \return      void
+*/
+void csi_gpio_prepare_sleep_action();
+/**
+  \brief       gpio resume after sleep
+  \param[in]   void
+  \return      void
+*/
+void csi_gpio_wakeup_sleep_action();
+
+
+
 /**
   \brief       config pin mode
   \param[in]   pin       gpio pin handle to operate.

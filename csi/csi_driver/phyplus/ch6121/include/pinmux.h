@@ -32,6 +32,9 @@ extern "C" {
 
 int32_t drv_pinmux_config(pin_name_e pin, pin_func_e pin_func);
 void drv_pinmux_reset(void);
+void csi_pinmux_prepare_sleep_action();
+void csi_pinmux_wakeup_sleep_action(); 
+
 
 #ifdef __cplusplus
 }

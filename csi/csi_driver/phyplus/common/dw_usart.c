@@ -33,7 +33,6 @@
 #include <sys_freq.h>
 #include <clock.h>
 
-
 #define ERR_USART(errno) (CSI_DRV_ERRNO_USART_BASE | errno)
 
 /*
@@ -90,6 +89,10 @@ typedef struct {
 
 extern int32_t target_usart_init(int32_t idx, uint32_t *base, uint32_t *irq, void **handler);
 extern int32_t target_get_addr_space(uint32_t addr);
+extern void registers_save(uint32_t *mem, uint32_t *addr, int size);
+extern void registers_restore(uint32_t *addr, uint32_t *mem, int size);
+
+static uint32_t usart_regs_saved[CONFIG_USART_NUM][5];
 
 static dw_usart_priv_t usart_instance[CONFIG_USART_NUM];
 
@@ -438,6 +441,7 @@ static void dw_usart_intr_recv_line(int32_t idx, dw_usart_priv_t *usart_priv)
 {
     dw_usart_reg_t *addr = (dw_usart_reg_t *)(usart_priv->base);
     uint32_t lsr_stat = addr->LSR;
+
     uint32_t timecount = 0;
 
     while (addr->LSR & 0x1) {
@@ -604,6 +608,51 @@ static void do_wakeup_sleep_action(usart_handle_t handle)
 }
 #endif
 
+
+void csi_usart_prepare_sleep_action(int32_t idx)
+{
+    dw_usart_priv_t *usart_priv = NULL;
+    usart_handle_t handle = NULL;
+    usart_priv = &usart_instance[idx];
+
+    if (!usart_priv || idx >= CONFIG_USART_NUM) {
+        return;
+    }
+
+    handle = usart_priv;
+    volatile dw_usart_reg_t *ubase = (dw_usart_reg_t *)(usart_priv->base);
+    uint8_t data[16];
+    csi_usart_receive_query(handle, data, 16);
+    WAIT_USART_IDLE_VOID(ubase);
+    ubase->LCR |= LCR_SET_DLAB;
+    registers_save(usart_regs_saved[idx], (uint32_t *)ubase, 2);
+    ubase->LCR &= ~LCR_SET_DLAB;
+    registers_save(&usart_regs_saved[idx][2], (uint32_t *)ubase + 1, 1);
+    registers_save(&usart_regs_saved[idx][3], (uint32_t *)ubase + 3, 2);
+
+}
+
+void csi_usart_wakeup_sleep_action(int32_t idx)
+{
+    dw_usart_priv_t *usart_priv = NULL;
+    usart_priv = &usart_instance[idx];
+
+    if (!usart_priv || idx >= CONFIG_USART_NUM) {
+        return;
+    }
+
+    volatile dw_usart_reg_t *ubase = (dw_usart_reg_t *)(usart_priv->base);
+    WAIT_USART_IDLE_VOID(ubase);
+    ubase->LCR |= LCR_SET_DLAB;
+    registers_restore((uint32_t *)ubase, usart_regs_saved[idx], 2);
+    ubase->LCR &= ~LCR_SET_DLAB;
+    registers_restore((uint32_t *)ubase + 1, &usart_regs_saved[idx][2], 1);
+    registers_restore((uint32_t *)ubase + 3, &usart_regs_saved[idx][3], 2);
+    ubase->FCR |= 0x41;
+}
+
+
+
 /**
   \brief       Get driver capabilities.
   \param[in]   idx usart index
@@ -630,17 +679,14 @@ usart_handle_t csi_usart_initialize(int32_t idx, usart_event_cb_t cb_event)
 {
     uint32_t base = 0u;
     uint32_t irq = 0u;
-    int32_t ret = 0;
     void *handler;
-    dw_usart_priv_t *usart_priv = NULL;
-
-    ret = target_usart_init(idx, &base, &irq, &handler);
+    int32_t ret = target_usart_init(idx, &base, &irq, &handler);
 
     if (ret < 0 || ret >= CONFIG_USART_NUM) {
         return NULL;
     }
 
-    usart_priv = &usart_instance[idx];
+    dw_usart_priv_t *usart_priv = &usart_instance[idx];
     usart_priv->base = base;
     usart_priv->irq = irq;
     usart_priv->cb_event = cb_event;
@@ -709,8 +755,6 @@ int32_t csi_usart_config(usart_handle_t handle,
 {
     int32_t ret;
 
-    USART_NULL_PARAM_CHK(handle);
-
     /* control the data_bit of the usart*/
     ret = csi_usart_config_baudrate(handle, baud);
 
@@ -773,13 +817,6 @@ int32_t csi_usart_send(usart_handle_t handle, const void *data, uint32_t num)
 
     for (i = 0; i < num; i++) {
         csi_usart_putchar(handle, buff[i]);
-    }
-
-    dw_usart_reg_t *addr = (dw_usart_reg_t *)(usart_priv->base);
-    int ret = usart_wait_timeout(handle, addr);
-    if (ret)
-    {
-        return ERR_USART(DRV_ERROR_TIMEOUT);
     }
 
     if (usart_priv->cb_event) {
