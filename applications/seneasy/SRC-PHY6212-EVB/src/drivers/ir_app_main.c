@@ -30,9 +30,6 @@
 
 #include "ir.h"
 
-#define THIS_PWM_CH     1           /*range 0~5 PWM_CH0~PWM_CH5*/
-#define THIS_IR_PWM     PWM1
-#define THIS_IR_GPIO    GPIO_P06
 
 
 
@@ -42,12 +39,7 @@ int app_main(void)
     board_yoc_init();
     disableSleepInPM(1);//关闭低功耗模式，禁止休眠
 
-    IR_Ready();
-    IR_Config_PWM(THIS_PWM_CH,38000,4,1);
-    IR_Config_GPIO(THIS_IR_GPIO, THIS_IR_PWM);
-
     IR_Send(0x01,0x80);
-    IR_Close();
 
 
     return 0;
