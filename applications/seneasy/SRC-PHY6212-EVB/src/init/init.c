@@ -11,6 +11,7 @@
 #include <yoc/init.h>
 #include <pm.h>
 #include <drv_gpio.h>
+#include <drv_usart.h>
 
 
 void at_server_init(utask_t *task);
@@ -104,11 +105,13 @@ extern void kscan_prepare_sleep_action();
 int pm_prepare_sleep_action()
 {
     hal_ret_sram_enable(RET_SRAM0 | RET_SRAM1 | RET_SRAM2);
-    // csi_gpio_prepare_sleep_action();
-    // csi_pinmux_prepare_sleep_action();
-    usart_prepare_sleep_action();
+    csi_pinmux_prepare_sleep_action();
+    csi_gpio_prepare_sleep_action();
 
-    // kscan_prepare_sleep_action();
+    // usart_prepare_sleep_action();
+    csi_usart_prepare_sleep_action(0);
+
+    kscan_prepare_sleep_action();
     // gpio_prepare_sleep_action();
     return 0;
 }
@@ -117,11 +120,13 @@ int pm_prepare_sleep_action()
  */
 int pm_after_sleep_action()
 {
-    // csi_gpio_wakeup_sleep_action();
-    // csi_pinmux_wakeup_sleep_action();
-    usart_wakeup_action();
+    csi_pinmux_wakeup_sleep_action();
+    csi_gpio_wakeup_sleep_action();
+    csi_usart_wakeup_sleep_action(0);
+    
+    // usart_wakeup_action();
 
-    // kscan_wakeup_action();
+    kscan_wakeup_action();
 
     return 0;
 }
