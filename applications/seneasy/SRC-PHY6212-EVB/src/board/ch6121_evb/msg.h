@@ -1,3 +1,7 @@
+
+#ifndef _APP_MSG_H
+#define _APP_MSG_H
+
 #include <aos/kernel.h>
 #include <aos/types.h>
 #include <aos/log.h>
@@ -28,5 +32,7 @@ int32_t io_send_message(io_msg_t *msg);
 int32_t io_recv_message(io_msg_t *msg, uint32_t ms);
 
 int io_msg_get_len();
+
+#endif
 
 

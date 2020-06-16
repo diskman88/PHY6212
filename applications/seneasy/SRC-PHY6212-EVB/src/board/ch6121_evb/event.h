@@ -1,3 +1,6 @@
+#ifndef _APP_EVENT_H
+#define _APP_EVENT_H
+
 #include <aos/kernel.h>
 #include <aos/types.h>
 #include <aos/log.h>
@@ -19,3 +22,5 @@ int32_t app_event_init();
 int32_t app_event_set(app_event_t event);
 
 int32_t app_event_get(uint32_t require_flags, uint32_t *actl_flags, uint32_t timeout);
+
+#endif
