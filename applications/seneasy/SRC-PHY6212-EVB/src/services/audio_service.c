@@ -1,5 +1,7 @@
 
 #include "audio_service.h"
+#include <uart.h>
+#include <log.h>
 
 static void voice_event_handle(voice_Evt_t *evt) 
 {
@@ -7,7 +9,8 @@ static void voice_event_handle(voice_Evt_t *evt)
         LOGI("VOICE", "voice event failed");
     }
     else if (evt->type == HAL_VOICE_EVT_DATA) {
-        LOGI("VOICE", "voice new data:size = %d, addr = %x", evt->size, (uint32_t)evt->data);
+        // LOGI("VOICE", "voice new data:size = %d, addr = %x", evt->size, (uint32_t)evt->data);
+        LOG_HEXDUMP("VOICE", evt->data, evt->size * 4);
     } else {
         return;
     }
@@ -16,7 +19,7 @@ static void voice_event_handle(voice_Evt_t *evt)
 void audio_service_init()
 {
     phy_voice_init();
-
+    
     voice_Cfg_t cfg;
     cfg.voiceSelAmicDmic = false;   // 模拟麦克风
     cfg.amicGain = 0;
@@ -26,11 +29,18 @@ void audio_service_init()
     cfg.voiceAutoMuteOnOff = true;
     phy_voice_config(cfg, voice_event_handle);
 
-    // phy_voice_start();
+    phy_voice_start();
 }
 
-void audio_start_record()
+void audio_start()
 {
     phy_voice_start();
 }
+
+void audio_stop()
+{
+    phy_voice_stop();
+}
+
+
 
