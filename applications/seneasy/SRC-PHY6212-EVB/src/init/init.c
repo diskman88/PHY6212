@@ -106,7 +106,7 @@ int pm_prepare_sleep_action()
 {
     hal_ret_sram_enable(RET_SRAM0 | RET_SRAM1 | RET_SRAM2);
     csi_pinmux_prepare_sleep_action();
-    csi_gpio_prepare_sleep_action();
+    // csi_gpio_prepare_sleep_action();
 
     // usart_prepare_sleep_action();
     csi_usart_prepare_sleep_action(0);
@@ -121,7 +121,7 @@ int pm_prepare_sleep_action()
 int pm_after_sleep_action()
 {
     csi_pinmux_wakeup_sleep_action();
-    csi_gpio_wakeup_sleep_action();
+    // csi_gpio_wakeup_sleep_action();
     csi_usart_wakeup_sleep_action(0);
     
     // usart_wakeup_action();
@@ -173,7 +173,7 @@ void board_yoc_init(void)
 #endif
 
     /* disable low power mode when use console */
-    disableSleepInPM(1);
+    // disableSleepInPM(1);
     
 
     phy_gpio_pull_set(P9, WEAK_PULL_UP);

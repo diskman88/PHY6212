@@ -86,6 +86,7 @@ void kscan_gpio_col_init()
 		drv_pinmux_config(pins_for_col[i], PIN_FUNC_GPIO);
 		phy_gpio_pin_init(pins_for_col[i], OEN);
 		phy_gpio_pull_set(pins_for_col[i], WEAK_PULL_UP);
+		phy_gpio_write(pins_for_col[i], 1);
 		// kscan_cols[i] = csi_gpio_pin_initialize(pins_for_col[i], NULL);
 		// csi_gpio_pin_config(cols[i], GPIO_MODE_PULLUP, GPIO_DIRECTION_OUTPUT);
 		// csi_gpio_pin_config_mode(kscan_cols[i], GPIO_MODE_PULLUP);
@@ -220,6 +221,8 @@ void kscan_row_interrupt_disable()
 static uint16_t kscan_row_sleep_state;
 void kscan_prepare_sleep_action()
 {
+	kscan_row_interrupt_disable();
+
 	// 配置所有列线强上拉(1)
 	for (int i = 0; i < KSCAN_COL_NUM; i++) {
 		// csi_gpio_pin_config_mode(kscan_cols[i], GPIO_MODE_PULLDOWN);
@@ -240,12 +243,14 @@ void kscan_prepare_sleep_action()
 		}
 	}
 
-	// LOGI("kscan", "enter sleep, input = %4X", kscan_row_sleep_state);	
+	// LOGI("kscan", "sleep, row = %4X", kscan_row_sleep_state);	
 }
 
 void kscan_wakeup_action()
 {
 	int i;
+	
+	// LOGI("kscan", "wakeup, row = %4X", kscan_row_sleep_state);
 	// 检查是否是kscan行输入发生了改变引起的唤醒
 	for (i = KSCAN_ROW_NUM; i > 0; i--) {
 		if (phy_gpio_read(pins_for_row[i-1]) != (kscan_row_sleep_state & 0x0001)) {
