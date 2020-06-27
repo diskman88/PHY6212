@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "PHY6212",
+            "includePath": [
+                "applications/seneasy/SRC-PHY6212-EVB/**",
+                "out/config",
+                "~/seneasy/SDK/gcc-arm-none-eabi-8-2018-q4-major/**",
+                "${workspaceFolder}/boards/**",
+                "${workspaceFolder}/csi/**",
+                "${workspaceFolder}/drivers/**",
+                "${workspaceFolder}/include/**",
+                "${workspaceFolder}/kernel/**",
+                "${workspaceFolder}/libs/**",
+                "${workspaceFolder}/yoc_sdk/**"
+            ],
+            "defines": [],
+            "compilerPath": "~/seneasy/SDK/gcc-arm-none-eabi-8-2018-q4-major/bin/arm-none-eabi-gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "version": 4
+}
