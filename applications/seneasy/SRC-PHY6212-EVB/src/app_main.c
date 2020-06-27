@@ -28,7 +28,7 @@
 #include "services/hid_service.h"
 #include "services/battary_service.h"
 #include "services/dis_service.h"
-#include "services/audio_service.h"
+#include "services/atvv_service.h"
 
 #include "board/ch6121_evb/msg.h"
 #include "board/ch6121_evb/event.h"
@@ -329,7 +329,7 @@ int app_main(int argc, char *argv[])
 
     battary_service_init();
 
-    audio_service_init();
+    atvv_service_init();
 
     create_keyscan_task();
     
