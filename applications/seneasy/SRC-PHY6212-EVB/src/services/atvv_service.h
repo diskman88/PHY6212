@@ -21,8 +21,8 @@
 #include "../board/ch6121_evb/msg.h"
 #include "../board/ch6121_evb/event.h"
 
-void audio_service_init();
+typedef void * atv_voice_handle_t;
 
-void audio_start_record();
+atv_voice_handle_t atvv_service_init();
 
 #endif
