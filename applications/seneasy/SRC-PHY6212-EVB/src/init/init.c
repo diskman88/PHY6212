@@ -44,12 +44,9 @@ static void mm_init()
     mm_initialize(&g_mmheap, mm_heap, sizeof(mm_heap));
 }
 
-/*
- * 休眠处理
- */
+
 extern void registers_save(uint32_t *mem, uint32_t *addr, int size);
 static uint32_t usart_regs_saved[5];
-
 static void usart_prepare_sleep_action(void)
 {
     uint32_t addr = 0x40004000;
@@ -105,14 +102,15 @@ extern void kscan_prepare_sleep_action();
 int pm_prepare_sleep_action()
 {
     hal_ret_sram_enable(RET_SRAM0 | RET_SRAM1 | RET_SRAM2);
-    csi_pinmux_prepare_sleep_action();
     // csi_gpio_prepare_sleep_action();
 
     // usart_prepare_sleep_action();
     csi_usart_prepare_sleep_action(0);
 
     kscan_prepare_sleep_action();
-    // gpio_prepare_sleep_action();
+
+    // LOGI("PM", "device prepare to enter sleep");
+    csi_pinmux_prepare_sleep_action();    
     return 0;
 }
 /* 
@@ -122,12 +120,14 @@ int pm_after_sleep_action()
 {
     csi_pinmux_wakeup_sleep_action();
     // csi_gpio_wakeup_sleep_action();
-    csi_usart_wakeup_sleep_action(0);
-    
-    // usart_wakeup_action();
-
     kscan_wakeup_action();
 
+    drv_pinmux_config(P9, UART_TX);
+    drv_pinmux_config(P10, UART_RX);
+    csi_usart_wakeup_sleep_action(0);
+    // usart_wakeup_action();
+
+    // LOGI("PM", "device wakeup");
     return 0;
 }
 
@@ -173,7 +173,7 @@ void board_yoc_init(void)
 #endif
 
     /* disable low power mode when use console */
-    // disableSleepInPM(1);
+    disableSleepInPM(1);
     
 
     phy_gpio_pull_set(P9, WEAK_PULL_UP);

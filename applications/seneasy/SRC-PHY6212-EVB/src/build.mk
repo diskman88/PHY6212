@@ -23,7 +23,7 @@ L_MODULE := libmain
 L_SRCS += init/cli_cmd.c \
           init/init.c
 
-L_SRCS += app_main.c
+L_SRCS += app_main.c app_msg.c gap.c
 
 # ble services
 L_SRCS += $(addprefix services/, $(notdir $(wildcard src/services/*.c)))
@@ -40,8 +40,6 @@ L_INCS := include \
 
 L_SRCS += board/$(CONFIG_BOARD_NAME)/board_ble.c \
           board/$(CONFIG_BOARD_NAME)/board_devices.c \
-          board/$(CONFIG_BOARD_NAME)/event.c \
-          board/$(CONFIG_BOARD_NAME)/msg.c \
 
 L_CFLAGS += -Wunused-variable
 
