@@ -1,7 +1,8 @@
 out/
 .vscode/*
-!.vscode/c_cpp_properties.json
+# !.vscode/c_cpp_properties.json
 **/*.d
 **/*.o
 csi/out/
 yoc_sdk/
+*.pyc
