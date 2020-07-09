@@ -18,11 +18,8 @@
 #include <pm.h>
 #include <voice.h>
 
-#include "../board/ch6121_evb/msg.h"
-#include "../board/ch6121_evb/event.h"
+typedef void * atvv_handle_t;
 
-typedef void * atv_voice_handle_t;
-
-atv_voice_handle_t atvv_service_init();
+atvv_handle_t atvv_service_init();
 
 #endif

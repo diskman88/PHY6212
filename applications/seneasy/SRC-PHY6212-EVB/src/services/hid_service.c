@@ -1,4 +1,5 @@
 #include "hid_service.h"
+#include "../gap.h"
 
 #define TAG_HID         "hid"
 
@@ -49,7 +50,6 @@ static uint8_t report_map[] = {
 };
 
 static hids_handle_t g_hids_handle = NULL;
-extern int16_t g_conn_handle;
 
 static uint8_t report_output_data[1] = {
     0x00,
@@ -77,7 +77,7 @@ int key_board_send(press_key_data *senddata)
     int iflag = 0;
 
     //code data not 0
-    if (g_conn_handle != -1) {
+    if ( g_gap_data.conn_handle != -1) {
         iflag = hids_key_send(g_hids_handle, (uint8_t *)(senddata), sizeof(press_key_data));
         memset(senddata, 0, sizeof(press_key_data));
         iflag |= hids_key_send(g_hids_handle, (uint8_t *)(senddata), sizeof(press_key_data));

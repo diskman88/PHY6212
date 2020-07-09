@@ -68,10 +68,9 @@ static void atvv_cccd_change(uint16_t index, void *event_data)
     LOGI("AUDIO", "cccd change:%x", e->ccc_value);
 }
 
-static void atvv_char_write(uint16_t index, void *event_data)
+static void atvv_char_write(uint16_t index, evt_data_gatt_char_write_t *event_data)
 {
-    evt_data_gatt_char_write_t *e = (evt_data_gatt_char_write_t *)event_data;
-
+    
 }
 
 static void atvv_char_read(uint16_t index, void *event_data)
@@ -120,7 +119,7 @@ static ble_event_cb_t ble_cb = {
     .callback = atvv_event_callback,
 };
 
-atv_voice_handle_t atvv_service_init()
+atvv_handle_t atvv_service_init()
 {
     int ret = 0;
 
