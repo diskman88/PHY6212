@@ -46,7 +46,8 @@ typedef struct key_def_t
 	uint32_t hold_time_ms;
 }key_def_t;
 
-static key_def_t keys[KSCAN_ROW_NUM*KSCAN_COL_NUM];
+static bool is_has_changed = false;
+static key_def_t keys[KSCAN_COL_NUM][KSCAN_ROW_NUM];
 static key_def_t * keys_pressed[KSCAN_MAX_KEY_NUM];
 
 // static gpio_pin_handle_t kscan_rows[KSCAN_ROW_NUM];
@@ -104,14 +105,16 @@ void kscan_gpio_col_init()
 int kscan_read_keycode() 
 {
 	int key_cnt = 0;
+	is_has_changed = false;
 	// 扫描键盘
 	for (int c = 0; c < KSCAN_COL_NUM; c++) {
 		// 列[c]输出0
 		phy_gpio_write(pins_for_col[c], 0);	
 		// 扫描行输入
 		for (int r = 0; r < KSCAN_ROW_NUM; r++) {
-			key_def_t *skey = &keys[c * KSCAN_ROW_NUM + r]; 
-			skey->code = c * KSCAN_ROW_NUM + r;
+			key_def_t *skey = &keys[c][r]; 
+			// skey->code = c * KSCAN_ROW_NUM + r + 1;
+			skey->code = r * KSCAN_COL_NUM + c + 1;
 			uint8_t pre_state = skey->state;
 			// 该行输入为0,有键按下
 			if (phy_gpio_read(pins_for_row[r]) == 0) {
@@ -152,6 +155,7 @@ int kscan_read_keycode()
 			// 状态改变
 			if (skey->state != pre_state) {
 				skey->is_changed = true;
+				is_has_changed = true;
 			} else {
 				skey->is_changed = false;
 			}
@@ -175,7 +179,7 @@ void GPIO_IRQ_handler()
     AP_GPIOA->porta_eoi = st;
 	AP_GPIOA->inten &= ~st;
 
-	LOGI("IT", "INT_STATUS=%x, polarity=%x", st, polarity);
+	// LOGI("IT", "INT_STATUS=%x, polarity=%x", st, polarity);
 	aos_sem_signal(&sem_keyscan_start);
 }
 
@@ -263,6 +267,7 @@ void kscan_wakeup_action()
 		kscan_gpio_col_init();
 		kscan_gpio_row_init();
 		aos_sem_signal(&sem_keyscan_start);
+		LOGI("KEYSCAN", "keyscan wakeup");
 	}
 }
 
@@ -289,6 +294,72 @@ void cli_reg_cmd_keyscan()
 
 #endif
 
+static const uint8_t kscan_one_key_map[6][2] = {
+	//scan code, key code
+	{ 1, VK_KEY_0 },
+	{ 2, VK_KEY_2 },
+	{ 3, VK_KEY_3 },
+	{ 4, VK_KEY_4 },
+	{ 5, VK_KEY_5 },
+	{ 0, 0}
+};
+
+static const uint8_t kscan_hold_key_map[2][2] = {
+	//scan code, key code
+	{ 1, VK_FUNC_3 },
+	{ 0, 0 }
+};
+
+static const uint8_t kscan_combin_key_map[5][3] = {
+	//scan code1, scan code2, key code
+	{ 1,	2, 		VK_FUNC_1},
+	{ 2, 	4,		VK_FUNC_2},
+	{ 3, 	5, 		VK_FUNC_3},
+	{ 4, 	2,		VK_FUNC_4},
+	{ 0, 	0,		0},
+};
+
+kscan_key_t get_one_key(uint8_t code)
+{
+	int i = 0;
+	while (kscan_one_key_map[i][1] != 0) {
+		if (kscan_one_key_map[i][0] == code) {
+			return kscan_one_key_map[i][1];
+		}
+		i++;
+	}
+	return 0;
+}
+
+kscan_key_t get_combin_key(uint8_t code1, uint8_t code2)
+{
+	int i = 0;
+	while (kscan_combin_key_map[i][2] != 0) {
+		if (kscan_combin_key_map[i][0] == code1 && kscan_combin_key_map[i][1] == code2 ) {
+			return kscan_combin_key_map[i][2];
+		}
+		i++;
+	}
+	return 0;
+}
+
+kscan_key_t get_hold_key(uint8_t code) 
+{
+	int i = 0;
+	while (kscan_hold_key_map[i][1] != 0) {
+		if (kscan_hold_key_map[i][0] == code) {
+			return kscan_hold_key_map[i][1];
+		}
+		i++;
+	}
+	return 0;	
+}
+
+static aos_timer_t kscan_timer = {0};
+void kscan_timer_callback(void *arg1, void *arg2)
+{
+	aos_sem_signal(&sem_keyscan_start);
+}
 
 // extern uint64_t csi_kernel_get_ticks(void);
 // extern k_status_t csi_kernel_delay_ms(uint32_t ms);
@@ -302,6 +373,15 @@ void keyscan_task(void * args)
 	kscan_gpio_row_init();
 	kscan_gpio_col_init();
 
+	for (int c = 0; c < KSCAN_COL_NUM; c++) {
+		for (int r = 0; r < KSCAN_ROW_NUM; r++) {
+			keys[c][r].state = KEY_RELEASE;
+			keys[c][r].is_changed = false;
+			keys[c][r].hold_time_ms = 0;
+			keys[c][r].code = 0;
+		}
+	}
+
 	drv_irq_register(GPIO_IRQ, GPIO_IRQ_handler);
 	kscan_row_interrupt_enable();
 	drv_irq_enable(GPIO_IRQ);
@@ -312,115 +392,98 @@ void keyscan_task(void * args)
 	
 	LOGI("KEYSCAN", "key scan start");
 
+	bool is_vk_pressed = false;
+	
 	while(1) {
 		// 按键状态发生改变,睡眠状态唤醒/发生中断
 		aos_sem_wait(&sem_keyscan_start, AOS_WAIT_FOREVER);
+
 		// 禁止睡眠
 		disableSleepInPM(0x02);
-		kscan_row_interrupt_disable();
-		// drv_irq_disable(GPIO_IRQ)
-		// 按键消息
-		bool new_message = false;
-		io_msg_t msg;
-		// 计时器
-		uint64_t t1 = csi_kernel_get_ticks();
-		// LOGI("KEYSCAN", "start with:%d", t1);
 
+		// 处理按键时,禁止中断
+		kscan_row_interrupt_disable();	
+		// aos_timer_start(&kscan_timer);
+
+		// uint64_t t1 = csi_kernel_get_ticks();
+		// LOGI("KEYSCAN", "start with:%d", t1);
+		io_msg_t msg;
+		msg.type = IO_MSG_KEYSCAN;
 		while (1) {
 			// 扫描按键,获取按键值
 			uint8_t key_num = kscan_read_keycode();
-			// LOGI("KEYSCAN", "kscan_read_keycode:%d", key_num);
+			// LOGI("KEYSCAN", "kscan_read_keycode:%d,code1=%d,code2=%d", key_num, keys_pressed[0]->code, keys_pressed[1]->code);
+
 			// 有键按下
-			if (key_num != 0)
-			{	
-				msg.type = MSG_KSCAN_DOWN;
-				// 单键按下
-				if (key_num == 1) {
+			if (key_num != 0) {	
+				if (key_num == 1) {		// 单键按下
 					if(keys_pressed[0]->is_changed) {
-						// 单键按下
-						if (keys_pressed[0]->state == KEY_DOWN) {
-							msg.event = MSG_EVENT_ONE_KEY;
-							msg.param = keys_pressed[0]->code;
-							new_message = true;
+						if (keys_pressed[0]->state == KEY_DOWN) {		// 单键按下
+							msg.subtype = IO_MSG_KEYSCAN_KEY_DOWN;
+							msg.param = get_one_key(keys_pressed[0]->code);
 						}
-						// 单键长按
-						if (keys_pressed[0]->state == KEY_HOLD) {
-							msg.event = MSG_EVENT_HOLD_KEY;
-							msg.param = keys_pressed[0]->code;
-							new_message = true;			
+						if (keys_pressed[0]->state == KEY_HOLD) {		// 单键长按
+							msg.subtype = IO_MSG_KEYSCAN_KEY_DOWN;
+							msg.param = get_hold_key(keys_pressed[0]->code);	
+						}
+					}
+				}
+				if (key_num == 2) {				// 双键按下
+					if (keys_pressed[0]->is_changed || keys_pressed[1]->is_changed) {
+						// 只处理按键按下事件
+						if (keys_pressed[0]->state == KEY_DOWN || keys_pressed[1]->state == KEY_DOWN) {
+							msg.subtype = IO_MSG_KEYSCAN_KEY_DOWN;
+							msg.param = get_combin_key(keys_pressed[0]->code, keys_pressed[1]->code);
 						}
 					}
 				}
 
-				// 双键按下
-				if (key_num == 2) {
-					if (keys_pressed[0]->is_changed || keys_pressed[1]->is_changed) {
-						// 只处理按键按下事件
-						if (keys_pressed[0]->state == KEY_DOWN || keys_pressed[1]->state == KEY_DOWN) {
-							msg.event = MSG_EVENT_COMBO_KEY;
-							msg.param = 0;
-							if (keys_pressed[0]->code > keys_pressed[1]->code) {
-								msg.param |= keys_pressed[0]->code;
-								msg.param = msg.param << 8;
-								msg.param |= keys_pressed[1]->code;							
-							} else
-							{
-								msg.param |= keys_pressed[1]->code;
-								msg.param = msg.param << 8;
-								msg.param |= keys_pressed[0]->code;	
-							}
-							new_message = true;
-						}
+				if (msg.param != 0) {
+					LOGI("KEYSCAN", "VK DOWN:%2X, scan code = %d", msg.param, keys_pressed[0]->code);
+					if (app_send_io_message(&msg) == false) {
+						LOGI("KEYSCAN", "send message failed");
 					}
-				}
+					msg.param = 0;
+					is_vk_pressed = true;
+				}				
 
 				// 3键及更多按键按下
 				if (key_num > 2) {
 					continue;
-				}
-
-				// 发送按键消息
-				if (new_message) {
-					LOGI("KSCAN", "key down:%d", keys_pressed[0]->code);
-
-					if(io_send_message(&msg) == 0) {
-						if(app_event_set(APP_EVENT_KEYSCAN) == 0) {
-							// LOGI("KSCAN", "key down:%d", keys_pressed[0]->code);
-						}
-					}
-					new_message = false;
-				}				
+				}			
 			}
 			// 按键松开
 			else {
-				msg.type = MSG_KSCAN_RELEASE;
-				msg.event = KSCAN_COL_NUM * KSCAN_ROW_NUM;
-				msg.lpMsgBuff = (void *)keys;
-				LOGI("KSCAN", "key releas");
-
-				if(io_send_message(&msg) == 0) {
-					if(app_event_set(APP_EVENT_KEYSCAN) == 0) {
-						// LOGI("KSCAN", "key releas");
+				if (is_vk_pressed) {
+					msg.subtype = IO_MSG_KEYSCAN_KEY_RELEASE;
+					msg.param = 0;
+					if (app_send_io_message(&msg)) {
+						LOGI("KSCAN", "key release");
 					}
+					is_vk_pressed = false;
 				}
+
+				// aos_timer_stop(&kscan_timer);
 				break;		// 退出循环
 			}
 
-			// 按键超时, 任意按键按下超过5S
-			if ((csi_kernel_get_ticks() - t1) > 5000) {
-				break;
-			}
+			// aos_sem_wait(&sem_keyscan_start, AOS_WAIT_FOREVER);
+
+			// // 按键超时, 任意按键按下超过5S
+			// if ((csi_kernel_get_ticks() - t1) > 5000) {
+			// 	break;
+			// }
 
 			// 延时
 			csi_kernel_delay_ms(50);
 		}
 
 		// 使能中断,以启动键盘扫描
-		// csi_kernel_delay_ms(1000); 	// 消除按键松开抖动
+		// csi_kernel_delay_ms(50); 	// 消除按键松开抖动
 		kscan_row_interrupt_enable();
-		// drv_irq_enable(GPIO_IRQ);
-
 		enableSleepInPM(0x02);
+
+
 	}
 }
 
@@ -432,6 +495,7 @@ int create_keyscan_task()
 	// s = aos_task_new("keyscan task", keyscan_task, NULL, 1024);
 	s += aos_task_new_ext(&hTaskKeyscan, "keyscan", keyscan_task, NULL, keyscan_stack, 2048, AOS_DEFAULT_APP_PRI);
 	s += aos_sem_new(&sem_keyscan_start, 1);
+	s += aos_timer_new_ext(&kscan_timer, kscan_timer_callback, NULL, 50, 1, 0);
 	// s += aos_timer_new_ext(&timer_keyscan, kscan_period_scan, NULL, 50, 1, 1);
 
     // s = krhino_task_create(&hTaskKeyscan, "keyscan task", NULL,
