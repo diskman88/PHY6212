@@ -17,10 +17,8 @@
 /*============================================================================*
  *                        Header Files
  *============================================================================*/
-#include "stdint.h"
-#include "os_mem.h"
-#include "rtl876x_gpio.h"
-#include "board.h"
+#include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,8 +38,8 @@ typedef enum
     VOICE_MSG_INVALID           = 0,
     VOICE_MSG_BT_SEND_COMPLETE  = 1,
     VOICE_MSG_BT_WRITE_CMD      = 2,
-    VOICE_MSG_PERIPHERAL_GDMA   = 3,
-} T_VOICE_MSG_TYPE;
+    VOICE_MSG_PERIPHERAL_NEW_FRAME   = 3,
+} VOICE_MSG_T;
 
 typedef enum
 {

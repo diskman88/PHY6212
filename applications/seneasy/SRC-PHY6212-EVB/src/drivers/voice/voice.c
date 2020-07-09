@@ -1,23 +1,16 @@
-#include <trace.h>
-#include <string.h>
-#include "board.h"
 #include "voice.h"
-#include "voice_driver.h"
-#include "profile_server.h"
-#include "hids_rmc.h"
-#include "profile_server.h"
-#include "app_msg.h"
-#include "rcu_application.h"
+#define SW_SBC_ENC    0
+#define SW_IMA_ADPCM_ENC    1
+#define SW_OPT_ADPCM_ENC    2
+#define VOICE_REPORT_FRAME_SIZE 128
 
-#include "swtimer.h"
-#include "key_handle.h"
-#include "os_timer.h"
-#include "rcu_dfu_service.h"
+#define VOICE_ENC_TYPE SW_IMA_ADPCM_ENC
+#define RCU_VOICE_EN    1
 
 #if (VOICE_ENC_TYPE == SW_SBC_ENC)
 #include "sbc.h"
 #elif (VOICE_ENC_TYPE == SW_IMA_ADPCM_ENC)
-#include "ima_adpcm_enc.h"
+#include "ima_adpcm.h"
 #elif (VOICE_ENC_TYPE == SW_OPT_ADPCM_ENC)
 #include "voice_adpcm.h"
 #endif
@@ -39,10 +32,6 @@ uint8_t pre_voice_need_send_nc_flag = 1;
 T_VOICE_MODE_TYPE voice_mode = VOICE_MODE_NULL;
 static uint8_t voice_queue_buffer[VOICE_REPORT_FRAME_SIZE * VOICE_QUEUE_MAX_LENGTH] = {0};
 static T_VOICE_QUEUE_DEF voice_queue;
-#if (VOICE_FLOW_SEL == ATV_GOOGLE_VOICE_FLOW)
-/* voice_exception_timer is used to detect voice process exception */
-static TimerHandle_t voice_exception_timer = NULL;
-#endif
 
 /*============================================================================*
  *                              Global Variables
@@ -61,31 +50,34 @@ extern int msbc_encode(void *input, int input_len, void *output, int output_len,
 /*============================================================================*
  *                              Loacal Functions
  *============================================================================*/
-static void voice_handle_init_data(void);
-static void voice_handle_init_encode_param(void);
-static void voice_handle_deinit_encode_param(void);
-static void voice_handle_init_queue(void);
-static bool voice_handle_is_queue_full(void);
-static bool voice_handle_is_queue_empty(void);
-static uint32_t voice_handle_get_queue_item_cnt(void);
-static bool voice_handle_in_queue(uint8_t *buffer);
-static bool voice_handle_out_queue(void);
-static void voice_handle_encode_raw_data(uint8_t *p_input_data, int32_t input_size,
-                                         uint8_t *p_output_data, int32_t *p_output_size);
-static void voice_handle_gdma_event(T_IO_MSG io_driver_msg_recv);
+static void voice_init_data(void);
+
+static void voice_init_encode_param(void);
+static void voice_deinit_encode_param(void);
+
+static void voice_init_queue(void);
+static bool voice_is_queue_full(void);
+static bool voice_is_queue_empty(void);
+static uint32_t voice_get_queue_item_cnt(void);
+static bool voice_in_queue(uint8_t *buffer);
+static bool voice_out_queue(void);
+static void voice_encode_raw_data(uint8_t *p_input_data, int32_t input_size, uint8_t *p_output_data, int32_t *p_output_size);
+
+static void voice_new_data_event_handle(T_IO_MSG io_driver_msg_recv);
+
 #if (VOICE_FLOW_SEL == ATV_GOOGLE_VOICE_FLOW)
-static void voice_handle_exception_timer_cb(TimerHandle_t p_timer);
+static void voice_exception_timer_cb(TimerHandle_t p_timer);
 #endif
 
 /**
 * @brief  Initialize voice handle data
 */
-void voice_handle_init_data(void)
+void voice_init_data(void)
 {
-    APP_PRINT_INFO0("[voice_handle_init_data] init data");
+    APP_PRINT_INFO0("[voice_init_data] init data");
     memset(&voice_global_data, 0, sizeof(voice_global_data));
 
-    voice_handle_init_queue();
+    voice_init_queue();
 }
 
 /**
@@ -93,7 +85,7 @@ void voice_handle_init_data(void)
  * @param none
  * @return none
  */
-void voice_handle_init_encode_param(void)
+void voice_init_encode_param(void)
 {
 #if (VOICE_ENC_TYPE == SW_MSBC_ENC)
     msbc_init();
@@ -115,7 +107,7 @@ void voice_handle_init_encode_param(void)
  * @param none
  * @return none
  */
-void voice_handle_deinit_encode_param(void)
+void voice_deinit_encode_param(void)
 {
 #if (VOICE_ENC_TYPE == SW_MSBC_ENC)
     msbc_deinit();
@@ -127,7 +119,7 @@ void voice_handle_deinit_encode_param(void)
  * @param none
  * @return none
  */
-void voice_handle_init_queue(void)
+void voice_init_queue(void)
 {
     voice_queue.queue_size = VOICE_QUEUE_MAX_LENGTH;
     voice_queue.out_queue_index   = 0;
@@ -140,7 +132,7 @@ void voice_handle_init_queue(void)
  * @param none
  * @return true or false
  */
-bool voice_handle_is_queue_full(void)
+bool voice_is_queue_full(void)
 {
     return ((voice_queue.in_queue_index + 1) % voice_queue.queue_size == voice_queue.out_queue_index);
 }
@@ -150,7 +142,7 @@ bool voice_handle_is_queue_full(void)
  * @param none
  * @return true or false
  */
-bool voice_handle_is_queue_empty(void)
+bool voice_is_queue_empty(void)
 {
     return (voice_queue.in_queue_index == voice_queue.out_queue_index);
 }
@@ -160,7 +152,7 @@ bool voice_handle_is_queue_empty(void)
  * @param none
  * @return item count
  */
-uint32_t voice_handle_get_queue_item_cnt(void)
+uint32_t voice_get_queue_item_cnt(void)
 {
     if (voice_queue.in_queue_index >= voice_queue.out_queue_index)
     {
@@ -177,11 +169,11 @@ uint32_t voice_handle_get_queue_item_cnt(void)
  * @param buffer - buffer data to be stored
  * @return true or false
  */
-bool voice_handle_in_queue(uint8_t *buffer)
+bool voice_in_queue(uint8_t *buffer)
 {
-    if (voice_handle_is_queue_full())
+    if (voice_is_queue_full())
     {
-        APP_PRINT_INFO0("[voice_handle_in_queue] queue is full, drop oldest data");
+        APP_PRINT_INFO0("[voice_in_queue] queue is full, drop oldest data");
         voice_queue.out_queue_index = (voice_queue.out_queue_index + 1) % voice_queue.queue_size;
     }
     memcpy(voice_queue.p_voice_buff + voice_queue.in_queue_index * VOICE_REPORT_FRAME_SIZE,
@@ -197,7 +189,7 @@ bool voice_handle_in_queue(uint8_t *buffer)
  * @param none
  * @return true or false
  */
-bool voice_handle_out_queue(void)
+bool voice_out_queue(void)
 {
     bool result = false;
     uint8_t gap_link_credits = 0;
@@ -212,32 +204,32 @@ bool voice_handle_out_queue(void)
 
     le_get_gap_param(GAP_PARAM_LE_REMAIN_CREDITS, &gap_link_credits);
 
-    if (voice_handle_is_queue_empty() == true)
+    if (voice_is_queue_empty() == true)
     {
-        APP_PRINT_INFO0("[voice_handle_out_queue] Voice Queue is empty.");
+        APP_PRINT_INFO0("[voice_out_queue] Voice Queue is empty.");
         result = false;
     }
     else if (app_global_data.mtu_size - 3 < VOICE_REPORT_FRAME_SIZE)
     {
-        APP_PRINT_WARN1("[voice_handle_out_queue] mtu size() is too small!", app_global_data.mtu_size);
+        APP_PRINT_WARN1("[voice_out_queue] mtu size() is too small!", app_global_data.mtu_size);
         result = false;
     }
     else if (gap_link_credits <=
              reserved_credits)  /* reserve at least one notification FIFO for key event */
     {
-        APP_PRINT_WARN1("[voice_handle_out_queue] gap_link_credits() is not enough!", gap_link_credits);
+        APP_PRINT_WARN1("[voice_out_queue] gap_link_credits() is not enough!", gap_link_credits);
         result = false;
     }
     else
     {
-        uint32_t queue_item_cnt = voice_handle_get_queue_item_cnt();
+        uint32_t queue_item_cnt = voice_get_queue_item_cnt();
         uint32_t loop_cnt = (queue_item_cnt <= gap_link_credits - 1) ? queue_item_cnt :
                             (gap_link_credits - 1);
 
-        APP_PRINT_INFO3("[voice_handle_out_queue] gap_link_credits is %d, queue_item_cnt is %d, loop_cnt is %d",
+        APP_PRINT_INFO3("[voice_out_queue] gap_link_credits is %d, queue_item_cnt is %d, loop_cnt is %d",
                         gap_link_credits, queue_item_cnt, loop_cnt);
 
-        while ((loop_cnt > 0) && (voice_handle_is_queue_empty() == false))
+        while ((loop_cnt > 0) && (voice_is_queue_empty() == false))
         {
             loop_cnt--;
             /* attampt to send voice data */
@@ -257,7 +249,7 @@ bool voice_handle_out_queue(void)
             }
             else
             {
-                APP_PRINT_WARN0("[voice_handle_out_queue] server_send_data failed");
+                APP_PRINT_WARN0("[voice_out_queue] server_send_data failed");
                 break;
             }
         }
@@ -271,19 +263,19 @@ bool voice_handle_out_queue(void)
 * @param   No parameter.
 * @return  true or false
 */
-bool voice_handle_start_mic(void)
+bool voice_start_mic(void)
 {
     app_global_data.is_voice_able_to_check_bat_vol = false;
     if (voice_driver_global_data.is_voice_driver_working == true)
     {
-        APP_PRINT_INFO0("[voice_handle_start_mic] Voice driver is working, start failed!");
+        APP_PRINT_INFO0("[voice_start_mic] Voice driver is working, start failed!");
         return false;
     }
 
-    APP_PRINT_INFO0("[voice_handle_start_mic] start recording!");
+    APP_PRINT_INFO0("[voice_start_mic] start recording!");
 
-    voice_handle_init_data();
-    voice_handle_init_encode_param();
+    voice_init_data();
+    voice_init_encode_param();
     app_set_latency_status(LANTENCY_OFF);  /* off latency to speed up voice process */
     voice_driver_init();
 
@@ -295,9 +287,9 @@ bool voice_handle_start_mic(void)
 * @param   No parameter.
 * @return  true or false
 */
-void voice_handle_stop_mic(void)
+void voice_stop_mic(void)
 {
-    APP_PRINT_INFO0("[voice_handle_stop_mic] stop recording!");
+    APP_PRINT_INFO0("[voice_stop_mic] stop recording!");
 
 #if SUPPORT_SILENT_OTA
     if (!dfu_check_working())
@@ -315,7 +307,7 @@ void voice_handle_stop_mic(void)
 
     if (voice_driver_global_data.is_voice_driver_working == false)
     {
-        APP_PRINT_INFO0("[voice_handle_stop_mic] Voice driver is not working, stop failed!");
+        APP_PRINT_INFO0("[voice_stop_mic] Voice driver is not working, stop failed!");
         if (voice_mode == VOICE_MODE_PRE)
         {
             voice_long_press_flag = 0;
@@ -327,7 +319,7 @@ void voice_handle_stop_mic(void)
         voice_long_press_flag = 0;
         voice_short_release_flag = 0;
         voice_driver_deinit();
-        voice_handle_deinit_encode_param();
+        voice_deinit_encode_param();
     }
     app_global_data.is_voice_able_to_check_bat_vol = true;
 }
@@ -338,7 +330,7 @@ void voice_handle_stop_mic(void)
 *          p_output_data - point of output data, p_output_size - point of output size
 * @return  void
 */
-void voice_handle_encode_raw_data(uint8_t *p_input_data, int32_t input_size,
+void voice_encode_raw_data(uint8_t *p_input_data, int32_t input_size,
                                   uint8_t *p_output_data, int32_t *p_output_size)
 {
 #if (VOICE_ENC_TYPE == SW_MSBC_ENC)
@@ -411,7 +403,7 @@ void voice_handle_encode_raw_data(uint8_t *p_input_data, int32_t input_size,
                                 &ima_adpcm_global_state);
     *p_output_size = tmp_size + 6;
 
-    APP_PRINT_INFO1("[voice_handle_encode_raw_data] *p_output_size = %d", *p_output_size);
+    APP_PRINT_INFO1("[voice_encode_raw_data] *p_output_size = %d", *p_output_size);
 #elif (VOICE_ENC_TYPE == SW_OPT_ADPCM_ENC)
     for (uint8_t i = 0; i < (VOICE_GDMA_FRAME_SIZE / VOICE_SAMPLE_NUM / 2) ; i++)
     {
@@ -432,55 +424,55 @@ void voice_handle_encode_raw_data(uint8_t *p_input_data, int32_t input_size,
 * @param   io_driver_msg_recv - gdma message
 * @return  void
 */
-void voice_handle_gdma_event(T_IO_MSG io_driver_msg_recv)
+void voice_new_frame_event(T_IO_MSG io_driver_msg_recv)
 {
     int32_t output_size = 0;
     uint8_t encode_output_buffer[VOICE_REPORT_FRAME_SIZE];
 
     if (true == voice_global_data.is_pending_to_stop_recording)
     {
-        if ((voice_handle_is_queue_empty() == true) ||
+        if ((voice_is_queue_empty() == true) ||
             (voice_global_data.is_allowed_to_notify_voice_data == false))
         {
             /* voice buffer data has all been sent after voice key up */
 #if (VOICE_FLOW_SEL == IFLYTEK_VOICE_FLOW)
             key_handle_notfiy_key_data(VK_NC);
-            voice_handle_stop_mic();
+            voice_stop_mic();
 #elif (VOICE_FLOW_SEL == HIDS_GOOGLE_VOICE_FLOW)
             voice_global_data.is_allowed_to_notify_voice_data = false;
             voice_mode = VOICE_MODE_NULL;
             //key_handle_notfiy_key_data(VK_VOICE_STOP);
             key_handle_notfiy_key_data(VK_NC);
-            voice_handle_stop_mic();
+            voice_stop_mic();
 #endif
         }
         else
         {
-            voice_handle_out_queue();
+            voice_out_queue();
         }
     }
     else
     {
         /* encode raw data */
-        voice_handle_encode_raw_data(io_driver_msg_recv.u.buf, VOICE_GDMA_FRAME_SIZE, encode_output_buffer,
+        voice_encode_raw_data(io_driver_msg_recv.u.buf, VOICE_GDMA_FRAME_SIZE, encode_output_buffer,
                                      &output_size);
 
         if (output_size == VOICE_REPORT_FRAME_SIZE)
         {
-            voice_handle_in_queue((uint8_t *)encode_output_buffer);
+            voice_in_queue((uint8_t *)encode_output_buffer);
 
             if (voice_global_data.is_allowed_to_notify_voice_data == true)
             {
-                voice_handle_out_queue();
+                voice_out_queue();
             }
             else
             {
-                APP_PRINT_INFO0("[voice_handle_gdma_event] not allowed to notify voice data");
+                APP_PRINT_INFO0("[voice_gdma_event] not allowed to notify voice data");
             }
         }
         else
         {
-            APP_PRINT_WARN1("[voice_handle_gdma_event] encode failed, output size is %d", output_size);
+            APP_PRINT_WARN1("[voice_gdma_event] encode failed, output size is %d", output_size);
         }
     }
 }
@@ -493,11 +485,11 @@ void voice_handle_gdma_event(T_IO_MSG io_driver_msg_recv)
  * @retval   void
  * Caution   do NOT excute time consumption functions in timer callback
  */
-void voice_handle_exception_timer_cb(TimerHandle_t p_timer)
+void voice_exception_timer_cb(TimerHandle_t p_timer)
 {
-    APP_PRINT_INFO0("[voice_handle_exception_timer_cb] timeout");
+    APP_PRINT_INFO0("[voice_exception_timer_cb] timeout");
 
-    voice_handle_stop_mic();
+    voice_stop_mic();
 }
 #endif
 
@@ -522,7 +514,7 @@ void voice_timer_callback(TimerHandle_t p_timer)
         APP_PRINT_INFO0("[voice_timer_callback] Voice recording time is over 30s, stop voice!");
         voice_global_data.is_allowed_to_notify_voice_data = false;
         voice_mode = VOICE_MODE_NULL;
-        voice_handle_stop_mic();
+        voice_stop_mic();
         key_handle_notfiy_key_data(VK_NC);
     }
 }
@@ -538,7 +530,7 @@ void pre_voice_send_nc_timer_callback(TimerHandle_t p_timer)
 * @param   No parameter.
 * @return  void
 */
-bool voice_handle_mic_key_pressed(void)
+bool voice_mic_key_pressed(void)
 {
     bool ret = true;
 
@@ -546,23 +538,23 @@ bool voice_handle_mic_key_pressed(void)
 
     if (true == voice_driver_global_data.is_voice_driver_working)
     {
-        APP_PRINT_WARN0("[voice_handle_mic_key_pressed] Voice driver is Working, start recording failed!");
+        APP_PRINT_WARN0("[voice_mic_key_pressed] Voice driver is Working, start recording failed!");
         return false;
     }
 
     if (voice_mode == VOICE_MODE_NORMAL)
     {
-        APP_PRINT_WARN0("[voice_handle_mic_key_pressed] restart voice_timer 30ms!");
+        APP_PRINT_WARN0("[voice_mic_key_pressed] restart voice_timer 30ms!");
         os_timer_restart(&voice_timer, VOICE_PRESS_TIMEOUT);
         voice_long_press_flag = 0;
         voice_short_release_flag = 0;
     }
 
 #if (VOICE_FLOW_SEL == IFLYTEK_VOICE_FLOW)
-    voice_handle_start_mic();
+    voice_start_mic();
     key_handle_notfiy_key_data(VK_VOICE);
 #elif (VOICE_FLOW_SEL == HIDS_GOOGLE_VOICE_FLOW)
-    voice_handle_start_mic();
+    voice_start_mic();
     //key_handle_notfiy_key_data(VK_VOICE);
     //key_handle_notfiy_key_data(VK_NC);
     voice_global_data.is_allowed_to_notify_voice_data = true;
@@ -582,13 +574,13 @@ bool voice_handle_mic_key_pressed(void)
     if (voice_exception_timer == NULL)
     {
         if (true == os_timer_create(&voice_exception_timer, "voice_exception_timer",  1, \
-                                    VOICE_EXCEPTION_TIMEOUT, false, voice_handle_exception_timer_cb))
+                                    VOICE_EXCEPTION_TIMEOUT, false, voice_exception_timer_cb))
         {
             os_timer_start(&voice_exception_timer);
         }
         else
         {
-            APP_PRINT_ERROR0("[voice_handle_mic_key_pressed] voice_exception_timer creat failed!");
+            APP_PRINT_ERROR0("[voice_mic_key_pressed] voice_exception_timer creat failed!");
         }
     }
     else
@@ -604,15 +596,15 @@ bool voice_handle_mic_key_pressed(void)
 * @param   No parameter.
 * @return  void
 */
-void voice_handle_mic_key_released(void)
+void voice_mic_key_released(void)
 {
-    APP_PRINT_WARN0("[voice_handle_mic_key_released] voice_handle_mic_key_released!");
-    APP_PRINT_WARN1("[voice_handle_mic_key_released] voice_mode =  %d", voice_mode);
+    APP_PRINT_WARN0("[voice_mic_key_released] voice_mic_key_released!");
+    APP_PRINT_WARN1("[voice_mic_key_released] voice_mode =  %d", voice_mode);
     if (voice_mode == VOICE_MODE_NORMAL)
     {
         if (voice_driver_global_data.is_voice_driver_working == false)
         {
-            APP_PRINT_WARN0("[voice_handle_mic_key_released] VOICE_MODE_NORMAL Voice driver is not working!");
+            APP_PRINT_WARN0("[voice_mic_key_released] VOICE_MODE_NORMAL Voice driver is not working!");
             return;
         }
     }
@@ -647,19 +639,19 @@ void voice_handle_mic_key_released(void)
         voice_mode = VOICE_MODE_NULL;
         if (voice_driver_global_data.is_voice_driver_working == false)
         {
-            APP_PRINT_WARN0("[voice_handle_mic_key_released] VOICE_MODE_PRE Voice driver is not working!");
+            APP_PRINT_WARN0("[voice_mic_key_released] VOICE_MODE_PRE Voice driver is not working!");
             return;
         }
     }
 
 #if (VOICE_FLOW_SEL == IFLYTEK_VOICE_FLOW)
-    if (voice_handle_is_queue_empty() ||
+    if (voice_is_queue_empty() ||
         (false == voice_global_data.is_allowed_to_notify_voice_data) ||
         (app_global_data.mtu_size - 3 < VOICE_REPORT_FRAME_SIZE))
     {
         /* stop voice recording immediately */
         key_handle_notfiy_key_data(VK_NC);
-        voice_handle_stop_mic();
+        voice_stop_mic();
     }
     else
     {
@@ -667,7 +659,7 @@ void voice_handle_mic_key_released(void)
         voice_global_data.is_pending_to_stop_recording = true;
     }
 #elif (VOICE_FLOW_SEL == HIDS_GOOGLE_VOICE_FLOW)
-    if (voice_handle_is_queue_empty() ||
+    if (voice_is_queue_empty() ||
         (false == voice_global_data.is_allowed_to_notify_voice_data) ||
         (app_global_data.mtu_size - 3 < VOICE_REPORT_FRAME_SIZE))
     {
@@ -676,7 +668,7 @@ void voice_handle_mic_key_released(void)
         //key_handle_notfiy_key_data(VK_VOICE_STOP);
         voice_mode = VOICE_MODE_NULL;
         key_handle_notfiy_key_data(VK_NC);
-        voice_handle_stop_mic();
+        voice_stop_mic();
     }
     else
     {
@@ -693,24 +685,24 @@ void voice_handle_mic_key_released(void)
 * @param   T_VOICE_MSG_TYPE msg_type, void *p_data.
 * @return  bool.
 */
-bool voice_handle_messages(T_VOICE_MSG_TYPE msg_type, void *p_data)
+bool voice_messages(VOICE_MSG_T msg_type, void *p_data)
 {
     bool ret = true;
 
-    APP_PRINT_INFO1("[voice_handle_messages] msg_type is %d", msg_type);
+    APP_PRINT_INFO1("[voice_messages] msg_type is %d", msg_type);
 
     switch (msg_type)
     {
-    case VOICE_MSG_PERIPHERAL_GDMA:
+    case VOICE_MSG_PERIPHERAL_NEW_FRAME:
         {
-            voice_handle_gdma_event(*(T_IO_MSG *)p_data);
+            voice_new_frame_event(*(T_IO_MSG *)p_data);
         }
         break;
     case VOICE_MSG_BT_SEND_COMPLETE:
         {
             if (voice_global_data.is_allowed_to_notify_voice_data)
             {
-                voice_handle_out_queue();
+                voice_out_queue();
             }
         }
         break;
@@ -719,31 +711,31 @@ bool voice_handle_messages(T_VOICE_MSG_TYPE msg_type, void *p_data)
             uint8_t cmd_type = *(uint8_t *)p_data;
             if (cmd_type == 0x01)
             {
-                APP_PRINT_INFO1("[voice_handle_messages] Enable voice data notification", cmd_type);
+                APP_PRINT_INFO1("[voice_messages] Enable voice data notification", cmd_type);
                 voice_mode = VOICE_MODE_NORMAL;
-                voice_handle_start_mic();
+                voice_start_mic();
                 voice_global_data.is_allowed_to_notify_voice_data = true;
             }
             else if (cmd_type == 0x00)
             {
-                APP_PRINT_INFO1("[voice_handle_messages] Disable voice data notification", cmd_type);
+                APP_PRINT_INFO1("[voice_messages] Disable voice data notification", cmd_type);
                 voice_global_data.is_allowed_to_notify_voice_data = false;
                 voice_mode = VOICE_MODE_NULL;
                 os_timer_stop(&voice_timer);
                 if (voice_driver_global_data.is_voice_driver_working == true)
                 {
-                    voice_handle_stop_mic();
+                    voice_stop_mic();
                 }
             }
             else
             {
-                APP_PRINT_INFO1("[voice_handle_messages] VOICE_MSG_BT_WRITE_CMD unknow cmd %d", cmd_type);
+                APP_PRINT_INFO1("[voice_messages] VOICE_MSG_BT_WRITE_CMD unknow cmd %d", cmd_type);
             }
         }
         break;
 
     default:
-        APP_PRINT_INFO0("[voice_handle_messages] unknown msg type!");
+        APP_PRINT_INFO0("[voice_messages] unknown msg type!");
         ret = false;
         break;
     }

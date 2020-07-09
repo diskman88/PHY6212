@@ -20,7 +20,9 @@
 ** - Changed some of the variable names to be more meaningful.
 */
 
-#include "adpcm.h"
+#include "ima_adpcm.h"
+
+adpcm_state_t ima_adpcm_global_state;
 
 /* Intel ADPCM step variation table */
 static int indexTable[16] = {
@@ -40,7 +42,7 @@ static int stepsizeTable[89] = {
     15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
 };
 
-int ima_adpcm_encoder(short *p_pcm_data, char *p_adpcm_data, int len, adpcm_state *state)
+int ima_adpcm_encoder(short *p_pcm_data, char *p_adpcm_data, int len, adpcm_state_t *state)
 {
     short *inp;			/* Input buffer pointer */
     signed char *outp;	/* output buffer pointer */
