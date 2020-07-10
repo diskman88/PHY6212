@@ -195,6 +195,7 @@ void rcu_ble_pairing()
     if(g_gap_data.state == GAP_STATE_ADVERTISING) {
         aos_timer_stop(&adv_timer);
         aos_timer_change_without_repeat(&adv_timer, ADV_PAIRING_TIMEOUT);
+        aos_timer_start(&adv_timer);
     }
 
     if(g_gap_data.state == GAP_STATE_IDLE) {
@@ -205,10 +206,10 @@ void rcu_ble_pairing()
         }
     }
 
-    if(g_gap_data.state == GAP_STATE_CONNECTED || g_gap_data.state == GAP_STATE_PAIRED) {
-        _remove_bond_info();
-        ble_stack_disconnect(g_gap_data.conn_handle);
-    }
+    // if(g_gap_data.state == GAP_STATE_CONNECTED || g_gap_data.state == GAP_STATE_PAIRED) {
+    //     _remove_bond_info();
+    //     ble_stack_disconnect(g_gap_data.conn_handle);
+    // }
 }
 
 
