@@ -94,43 +94,43 @@ typedef struct
 
 const vk_keyboard_map_t vk_to_keyboard_map[10 + 1]= {
     [0] = {
-        .vk = VK_KEY_0,
+        .vk = VK_KEY_1,
         .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x1E, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
     }, 
     [1] = {
-        .vk = VK_KEY_1,
+        .vk = VK_KEY_2,
         .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x1F, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
     },
     [2] = {
-        .vk = VK_KEY_2,
+        .vk = VK_KEY_3,
         .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x20, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
     },
     [3] = {
-        .vk = VK_KEY_3,
+        .vk = VK_KEY_4,
         .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x21, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
     },
     [4] = {
-        .vk = VK_KEY_4,
+        .vk = VK_KEY_5,
         .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x22, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
     },
     [5] = {
-        .vk = VK_KEY_5,
+        .vk = VK_KEY_6,
         .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x23, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
     },
     [6] = {
-        .vk = VK_KEY_6,
+        .vk = VK_KEY_7,
         .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x24, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
     },
     [7] = {
-        .vk = VK_KEY_7,
+        .vk = VK_KEY_8,
         .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x25, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
     },
     [8] = {
-        .vk = VK_KEY_8,
+        .vk = VK_KEY_9,
         .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x26, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
     },
     [9] = {
-        .vk = VK_KEY_9,
+        .vk = VK_KEY_10,
         .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x27, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
     },
     [10] = {
@@ -189,10 +189,11 @@ int app_main(int argc, char *argv[])
                 switch (msg.type)
                 {
                     case IO_MSG_KEYSCAN:
+                        // 1.hid keyboad 按键处理
                         rcu_vk_kb_handle(msg.param, msg.subtype);
                         LOGI("APP", "handle key = %d", msg.param);
-                        // 配对功能
-                        if (msg.param == VK_FUNC_6) {
+                        // 2.GAP配对功能
+                        if (msg.subtype == IO_MSG_KEYSCAN_KEY_DOWN && msg.param == VK_FUNC_6) {
                             rcu_ble_pairing();
                         }
                         break;
