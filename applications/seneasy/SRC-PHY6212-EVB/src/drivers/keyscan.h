@@ -8,7 +8,6 @@
 #include "../app_msg.h"
 
 typedef enum {
-    VK_KEY_0 = 0x30,
     VK_KEY_1 = 0x31,
     VK_KEY_2 = 0x32,
     VK_KEY_3 = 0x33,
@@ -18,6 +17,10 @@ typedef enum {
     VK_KEY_7 = 0x37,
     VK_KEY_8 = 0x38,
     VK_KEY_9 = 0x39,
+    VK_KEY_10 = 0x3A,
+    VK_KEY_11 = 0x3B,
+    VK_KEY_12 = 0x3C,
+    VK_KEY_13 = 0x3D,
 
     VK_FUNC_START = 0x80,
     VK_FUNC_1 = 0x80,

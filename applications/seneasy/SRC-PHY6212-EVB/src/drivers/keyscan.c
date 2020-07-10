@@ -96,6 +96,14 @@ void kscan_gpio_col_init()
 	}
 }
 
+void _kscan_delay_us(int us) 
+{
+	volatile int m;
+	while(us--){
+		m = 10;
+		while(m--);
+	}
+}
 /**
  * @brief 扫描并读取按键值
  * 
@@ -106,10 +114,17 @@ int kscan_read_keycode()
 {
 	int key_cnt = 0;
 	is_has_changed = false;
+
+	for (int c = 0; c < KSCAN_COL_NUM; c++) {
+		phy_gpio_pin_init(pins_for_col[c], IE);
+	}
+
 	// 扫描键盘
 	for (int c = 0; c < KSCAN_COL_NUM; c++) {
 		// 列[c]输出0
+		phy_gpio_pin_init(pins_for_col[c], OEN);
 		phy_gpio_write(pins_for_col[c], 0);	
+		_kscan_delay_us(10);
 		// 扫描行输入
 		for (int r = 0; r < KSCAN_ROW_NUM; r++) {
 			key_def_t *skey = &keys[c][r]; 
@@ -161,7 +176,9 @@ int kscan_read_keycode()
 			}
 		}
 		// 列[c]恢复1
-		phy_gpio_write(pins_for_col[c], 1);
+		phy_gpio_write(pins_for_col[c], 1);		
+		phy_gpio_pin_init(pins_for_col[c], IE);		
+		_kscan_delay_us(20);
 	}
 	return key_cnt;
 }
@@ -172,7 +189,7 @@ int kscan_read_keycode()
  */
 void GPIO_IRQ_handler()
 {
-    uint32 polarity = AP_GPIOA->int_polarity;
+    // uint32 polarity = AP_GPIOA->int_polarity;
     uint32 st = AP_GPIOA->int_status;
 
     //clear interrupt
@@ -294,13 +311,21 @@ void cli_reg_cmd_keyscan()
 
 #endif
 
-static const uint8_t kscan_one_key_map[6][2] = {
+static const uint8_t kscan_one_key_map[14][2] = {
 	//scan code, key code
-	{ 1, VK_KEY_0 },
-	{ 2, VK_KEY_2 },
-	{ 3, VK_KEY_3 },
-	{ 4, VK_KEY_4 },
-	{ 5, VK_KEY_5 },
+	{ 1,  VK_KEY_1 },
+	{ 2,  VK_KEY_2 },
+	{ 3,  VK_KEY_3 },
+	{ 4,  VK_KEY_4 },
+	{ 5,  VK_KEY_5 },
+	{ 6,  VK_KEY_6 },
+	{ 7,  VK_KEY_7 },
+	{ 8,  VK_KEY_8 },
+	{ 9,  VK_KEY_9 },
+	{ 10, VK_KEY_10 },
+	{ 11, VK_KEY_11 },
+	{ 12, VK_KEY_12 },
+	{ 13, VK_KEY_13 },
 	{ 0, 0}
 };
 
@@ -312,10 +337,7 @@ static const uint8_t kscan_hold_key_map[2][2] = {
 
 static const uint8_t kscan_combin_key_map[5][3] = {
 	//scan code1, scan code2, key code
-	{ 1,	2, 		VK_FUNC_1},
-	{ 2, 	4,		VK_FUNC_2},
-	{ 3, 	5, 		VK_FUNC_3},
-	{ 4, 	2,		VK_FUNC_4},
+	{ 5,	2, 		VK_FUNC_6},
 	{ 0, 	0,		0},
 };
 
@@ -334,6 +356,15 @@ kscan_key_t get_one_key(uint8_t code)
 kscan_key_t get_combin_key(uint8_t code1, uint8_t code2)
 {
 	int i = 0;
+	uint8_t temp;
+	
+	// 降序排列
+	if (code1 < code2) {
+		temp = code2;
+		code2 = code1;
+		code1 = temp;
+	}
+	// 寻找匹配的VK
 	while (kscan_combin_key_map[i][2] != 0) {
 		if (kscan_combin_key_map[i][0] == code1 && kscan_combin_key_map[i][1] == code2 ) {
 			return kscan_combin_key_map[i][2];
@@ -426,6 +457,8 @@ void keyscan_task(void * args)
 							msg.subtype = IO_MSG_KEYSCAN_KEY_DOWN;
 							msg.param = get_hold_key(keys_pressed[0]->code);	
 						}
+						
+						LOGI("KEYSCAN", "vk: 1 key pressed:%2X, scan code = %d", msg.param, keys_pressed[0]->code);
 					}
 				}
 				if (key_num == 2) {				// 双键按下
@@ -434,12 +467,12 @@ void keyscan_task(void * args)
 						if (keys_pressed[0]->state == KEY_DOWN || keys_pressed[1]->state == KEY_DOWN) {
 							msg.subtype = IO_MSG_KEYSCAN_KEY_DOWN;
 							msg.param = get_combin_key(keys_pressed[0]->code, keys_pressed[1]->code);
-						}
+						}					
+						LOGI("KEYSCAN", "vk: 2 key pressed:%2X, scan code = %d,%d", msg.param, keys_pressed[0]->code, keys_pressed[1]->code);
 					}
 				}
 
 				if (msg.param != 0) {
-					LOGI("KEYSCAN", "VK DOWN:%2X, scan code = %d", msg.param, keys_pressed[0]->code);
 					if (app_send_io_message(&msg) == false) {
 						LOGI("KEYSCAN", "send message failed");
 					}
