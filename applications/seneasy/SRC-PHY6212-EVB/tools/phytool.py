@@ -29,8 +29,51 @@ class PhyDownloader:
 
     def __init__(self, serialName, hexfile):
         self.hex = IntelHex(hexfile)
-        self.serial = serial.Serial(serialName, 115200, timeout=2)
+        self.serial = serial.Serial(serialName, 115200, timeout=5)
         self.write_index = 0
+
+    def reset(self, boot=True):
+        # reset = LOW, TM = HIGH
+        self.serial.dtr = False
+        self.serial.rts = True
+        time.sleep(0.1)
+        
+        # reset = HIGH, TM = HIGH
+        if boot == True:
+            self.serial.rts = False
+        # reset = HIGH, TM = LOW
+        else:
+            self.serial.rts = False
+            self.serial.dtr = True
+        
+        time.sleep(0.1)
+    
+    def change_baudrate(self, baudrate):
+        if baudrate > 2000000 or baudrate < 9600:
+            raise Exception("baudrate must be in range [9600, 2000000]")
+        self.serial.flushInput()
+        cmd = "uarts{0}".format(baudrate)
+        self.serial.write(cmd.encode())
+        print('>: ' + cmd)
+
+        time.sleep(0.2)
+        # self.serial._set_special_baudrate(baudrate)
+        # self.serial.baudrate = baudrate
+        # self.serial.flushInput()
+        # print(self.serial.baudrate)
+
+        self.serial.baudrate = baudrate
+        self.serial.flushInput()
+
+        ret = self.serial.read_until(b'#OK>>:')
+        print(ret)
+        print('<: ' + ret.decode())
+
+        if ret.endswith(b'#OK>>:') == False:
+            print('change baudrate failed, will use default baudrate(115200)')
+        else:
+            self.serial.baudrate = baudrate
+            print('change baudrate successed, use baudrate:{0}'.format(baudrate))
 
     def erase_512k(self):
         self.serial.flushInput()
@@ -119,6 +162,9 @@ hexFile = "generated/total_image.hex"
 
 phy = PhyDownloader('/dev/ttyUSB0', hexFile)
 # phy = PhyDownloader('COM11', hexFile)
+phy.reset(boot=True)
+
+phy.change_baudrate(500000)
 
 phy.erase_512k()
 phy.write_cpnum(10)
@@ -130,6 +176,7 @@ for seg in segments:
     end = seg[1]
     phy.write_bin(start, end)
 
+phy.reset(boot=False)
 phy.serial.close()
 
 import os
