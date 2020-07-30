@@ -180,4 +180,4 @@ phy.reset(boot=False)
 phy.serial.close()
 
 import os
-os.system('python3 -m serial.tools.miniterm /dev/ttyUSB0 115200')
+os.system('python3 -m serial.tools.miniterm /dev/ttyUSB0 768000 --rts 0 --dtr 1')
