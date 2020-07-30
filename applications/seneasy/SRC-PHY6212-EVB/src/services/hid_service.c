@@ -71,7 +71,6 @@ static void event_output_write(ble_event_en event, void *event_data)
     }
 }
 
-
 int key_board_send(press_key_data *senddata)
 {
     int iflag = 0;
@@ -79,8 +78,8 @@ int key_board_send(press_key_data *senddata)
     //code data not 0
     if ( g_gap_data.conn_handle != -1) {
         iflag = hids_key_send(g_hids_handle, (uint8_t *)(senddata), sizeof(press_key_data));
-        memset(senddata, 0, sizeof(press_key_data));
-        iflag |= hids_key_send(g_hids_handle, (uint8_t *)(senddata), sizeof(press_key_data));
+        // memset(senddata, 0, sizeof(press_key_data));
+        // iflag |= hids_key_send(g_hids_handle, (uint8_t *)(senddata), sizeof(press_key_data));
         return iflag;
     }
 
