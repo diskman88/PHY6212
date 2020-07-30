@@ -7,16 +7,12 @@
 #include "ll_def.h"
 #include "yoc/uart_server.h"
 
+#include "../gap.h"
 #include "atvv_service.h"
+#include "../app_msg.h"
 
-typedef struct _atv_voice_t
-{
-    uint16 conn_handle;
-    uint16 svc_handle;
-    uint16 cccd;
-}_atv_voice_t;
 
-static _atv_voice_t atvv;
+static atvv_service_t atvv;
 
 /** ATV Voice Service  */
 // service gatt index
@@ -32,6 +28,7 @@ enum ATVV_GATT_IDX {
 
     ATVV_IDX_CTL_CHAR,
     ATVV_IDX_CTL_VAL,
+    ATVV_IDX_CTL_CCC,
 
     ATVV_IDX_MAX,
 };
@@ -42,7 +39,8 @@ enum ATVV_GATT_IDX {
 #define ATVV_RX_UUID            UUID128_DECLARE(0x64, 0xB6, 0x17, 0xF6, 0x01, 0xAF, 0x7D, 0xBC, 0x05, 0x4F, 0x21, 0x5A, 0x03, 0x00, 0x5E, 0xAB)
 #define ATVV_CTL_UUID           UUID128_DECLARE(0x64, 0xB6, 0x17, 0xF6, 0x01, 0xAF, 0x7D, 0xBC, 0x05, 0x4F, 0x21, 0x5A, 0x04, 0x00, 0x5E, 0xAB)
 // ble stack service data
-static struct bt_gatt_ccc_cfg_t g_atvv_cccd[2] = {};
+static struct bt_gatt_ccc_cfg_t g_atvv_cccd_cfg1[1] = {};
+static struct bt_gatt_ccc_cfg_t g_atvv_cccd_cfg2[1] = {};
 static  gatt_service g_atvv_service;
 // static char ctl_char_des[] = "audio control";
 // static char data_char_des[] = "audio data";
@@ -53,60 +51,93 @@ gatt_attr_t atvv_attrs[ATVV_IDX_MAX] = {
     [ATVV_IDX_TX_CHAR] = GATT_CHAR_DEFINE(ATVV_TX_UUID,  GATT_CHRC_PROP_WRITE),
     [ATVV_IDX_TX_VAL] = GATT_CHAR_VAL_DEFINE(ATVV_TX_UUID, GATT_PERM_WRITE),
 
-    [ATVV_IDX_RX_CHAR] = GATT_CHAR_DEFINE(ATVV_RX_UUID,  GATT_CHRC_PROP_NOTIFY | GATT_CHRC_PROP_READ),
-    [ATVV_IDX_RX_VAL] = GATT_CHAR_VAL_DEFINE(YOC_UART_TX_UUID, GATT_PERM_READ),
-    [ATVV_IDX_RX_CCC] = GATT_CHAR_CCC_DEFINE(g_atvv_cccd),
+    [ATVV_IDX_RX_CHAR] = GATT_CHAR_DEFINE(ATVV_RX_UUID,  GATT_CHRC_PROP_READ | GATT_CHRC_PROP_NOTIFY),
+    [ATVV_IDX_RX_VAL] = GATT_CHAR_VAL_DEFINE(ATVV_RX_UUID, GATT_PERM_READ),
+    [ATVV_IDX_RX_CCC] = GATT_CHAR_CCC_DEFINE(g_atvv_cccd_cfg1),
 
-    [ATVV_IDX_CTL_CHAR] = GATT_CHAR_DEFINE(ATVV_CTL_UUID, GATT_CHRC_PROP_READ | GATT_CHRC_PROP_WRITE),
-    [ATVV_IDX_CTL_VAL] = GATT_CHAR_VAL_DEFINE(ATVV_CTL_UUID, GATT_PERM_READ | GATT_PERM_READ),
+    [ATVV_IDX_CTL_CHAR] = GATT_CHAR_DEFINE(ATVV_CTL_UUID, GATT_CHRC_PROP_READ | GATT_CHRC_PROP_NOTIFY),
+    [ATVV_IDX_CTL_VAL] = GATT_CHAR_VAL_DEFINE(ATVV_CTL_UUID, GATT_PERM_READ),
+    [ATVV_IDX_CTL_CCC] = GATT_CHAR_CCC_DEFINE(g_atvv_cccd_cfg2)
 };
 
-static void atvv_cccd_change(uint16_t index, void *event_data)
+static void atvv_cccd_change(evt_data_gatt_char_ccc_change_t *event_data)
 {
-    evt_data_gatt_char_ccc_change_t *e = (evt_data_gatt_char_ccc_change_t *)event_data;
-
-    LOGI("AUDIO", "cccd change:%x", e->ccc_value);
+    int16_t idx;
+    idx = event_data->char_handle - atvv.svc_handle;
+    switch(idx) {
+        case ATVV_IDX_RX_CCC:
+            LOGI("AUDIO", "ATVV_IDX_RX_CCC change:%x", event_data->ccc_value);
+            atvv.char_rx_cccd = event_data->ccc_value;
+            break;
+        case ATVV_IDX_CTL_CCC:
+            LOGI("AUDIO", "ATVV_IDX_CTL_CCC change:%x", event_data->ccc_value);
+            atvv.char_ctl_cccd = event_data->ccc_value;
+            break;
+        default:
+            break;
+    }
 }
 
-static void atvv_char_write(uint16_t index, evt_data_gatt_char_write_t *event_data)
+static void atvv_char_write(evt_data_gatt_char_write_t *event_data)
 {
+    int16_t idx;
+    idx = event_data->char_handle - atvv.svc_handle;
+    if (idx == ATVV_IDX_TX_VAL) {
+        app_msg_t msg;
+        // ATV:mic open
+        if (event_data->data[0] == 0x0C) {
+            msg.type = MSG_BT_GATT,
+            msg.subtype = MSG_BT_GATT_ATV_MIC_OPEN;
+            msg.param = 0;
+            app_send_message(&msg);
+        }
+        // ATV:mic stop
+        if (event_data->data[0] == 0x0D) {
+            msg.type = MSG_BT_GATT;
+            msg.subtype = MSG_BT_GATT_ATV_MIC_STOP;
+            msg.param = 0;
+            app_send_message(&msg);
+        }
+
+        // ATV: get_caps
+        if (event_data->data[0] == 0x0A) {
+            const uint8_t caps[3] = {0x0B, 0x01, 0x01};
+            atvv_ctl_send(caps, 3);
+        }
+        LOGI("ATVV", "write:len = %d, data[0]=0x%x", event_data->len, event_data->data[0]);
+    }
+}
+
+static void atvv_char_read(evt_data_gatt_char_read_t *event_data)
+{
+    // int16_t idx;
+    // LOGI("ATVV", "GATT read, handle=0x%x,atvv_handle=0x%x", event_data->char_handle, atvv.svc_handle);
     
-}
-
-static void atvv_char_read(uint16_t index, void *event_data)
-{
-
+    // idx = event_data->char_handle - atvv.svc_handle;
+    // if (idx == ATVV_IDX_RX_VAL) {
+    //     event_data->data = read_test_data;
+    //     event_data->len = 4;
+    //     LOGI("ATVV", "read:len = %d, data[0] = 0x%x", event_data->len, event_data->data[0]);
+    // }
 }
 
 static int atvv_event_callback(ble_event_en event, void *event_data)
 {
-    int16_t idx;
     switch (event) {
         // case EVENT_GAP_CONN_CHANGE:
         //     conn_change(event, event_data);
         //     break;
-
         // case EVENT_GATT_MTU_EXCHANGE:
         //     mtu_exchange(event, event_data);
         //     break;
         case EVENT_GATT_CHAR_READ:
-            idx = ((evt_data_gatt_char_read_t *)event_data)->char_handle - atvv.svc_handle;
-            if (idx >= 0 && idx < ATVV_IDX_MAX) {
-                atvv_char_read(idx, event_data);
-            }
+            atvv_char_read(event_data);
             break;
         case EVENT_GATT_CHAR_WRITE:
-            idx = ((evt_data_gatt_char_write_t *)event_data)->char_handle - atvv.svc_handle;
-            if (idx >= 0 && idx < ATVV_IDX_MAX) {
-                atvv_char_write(idx, event_data);
-            }
+            atvv_char_write(event_data);
             break;
-
         case EVENT_GATT_CHAR_CCC_CHANGE:    
-            idx = ((evt_data_gatt_char_ccc_change_t *)event_data)->char_handle - atvv.svc_handle;
-            if (idx >= 0 && idx < ATVV_IDX_MAX) {
-                atvv_cccd_change(idx, event_data);
-            }
+            atvv_cccd_change(event_data);
             break;
         default:
             break;
@@ -119,7 +150,7 @@ static ble_event_cb_t ble_cb = {
     .callback = atvv_event_callback,
 };
 
-atvv_handle_t atvv_service_init()
+atvv_service_t * atvv_service_init()
 {
     int ret = 0;
 
@@ -136,11 +167,28 @@ atvv_handle_t atvv_service_init()
         return NULL;
     }
 
-    atvv.conn_handle = -1;
-
     return &atvv;
 }
 
+
+
+int atvv_voice_send(const uint8_t * p_voice_data, uint16_t len)
+{
+    if (atvv.char_rx_cccd & CCC_VALUE_NOTIFY) {
+        return ble_stack_gatt_notificate(g_gap_data.conn_handle, atvv.svc_handle + ATVV_IDX_RX_VAL, p_voice_data, len);
+    } else {
+        return ATT_ERR_WRITE_NOT_PERMITTED;
+    }
+}
+
+int atvv_ctl_send(const uint8_t * p_data, uint16_t len) 
+{
+    if (atvv.char_ctl_cccd & CCC_VALUE_NOTIFY) {
+        return ble_stack_gatt_notificate(g_gap_data.conn_handle, atvv.svc_handle + ATVV_IDX_CTL_VAL, p_data, len);
+    } else {
+        return ATT_ERR_WRITE_NOT_PERMITTED;
+    }
+}
 /*
 int uart_server_adv_control(uint8_t adv_on, adv_param_t *adv_param)
 {

@@ -18,8 +18,17 @@
 #include <pm.h>
 #include <voice.h>
 
-typedef void * atvv_handle_t;
+typedef struct atvv_service_t
+{
+    uint16 svc_handle;
+    uint16 char_rx_cccd;
+    uint16 char_ctl_cccd;
+}atvv_service_t;
 
-atvv_handle_t atvv_service_init();
+atvv_service_t * atvv_service_init();
+
+int atvv_voice_send(const uint8_t * p_voice_data, uint16_t len);
+
+int atvv_ctl_send(const uint8_t * p_data, uint16_t len);
 
 #endif
