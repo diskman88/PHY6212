@@ -2,8 +2,8 @@
 #include "app_msg.h"
 
 
-#define IO_MSG_QUEUE_LEN   20
-static io_msg_t io_msg_queue_buff[IO_MSG_QUEUE_LEN];
+#define IO_MSG_QUEUE_LEN   50
+static app_msg_t msg_queue_buff[IO_MSG_QUEUE_LEN];
 static aos_queue_t io_msg_queue;
 static aos_event_t app_event_flags;
 
@@ -12,9 +12,9 @@ static aos_event_t app_event_flags;
  * 
  * @return bool 
  */
-bool app_init_io_message()
+bool app_init_message()
 {
-    if (aos_queue_new(&io_msg_queue, io_msg_queue_buff, sizeof(io_msg_t)*IO_MSG_QUEUE_LEN, sizeof(io_msg_t)) != 0){
+    if (aos_queue_new(&io_msg_queue, msg_queue_buff, sizeof(app_msg_t)*IO_MSG_QUEUE_LEN, sizeof(app_msg_t)) != 0){
         LOGE("MSG", "can`t create io message queue");
         return false;
     }
@@ -33,15 +33,15 @@ bool app_init_io_message()
  * @param msg 
  * @return int32_t 
  */
-bool app_send_io_message(io_msg_t *msg)
+bool app_send_message(app_msg_t *msg)
 {
-    if (aos_queue_send(&io_msg_queue, msg, sizeof(io_msg_t)) != 0) {
-        LOGE("MSG", "failed to send io message");
+    if (aos_queue_send(&io_msg_queue, msg, sizeof(app_msg_t)) != 0) {
+        // LOGE("MSG", "failed to send io message");
         return false;
     }
 
-    if (aos_event_set(&app_event_flags, APP_EVENT_IO, AOS_EVENT_OR) != 0) {
-        LOGE("MSG", "failed to set io event");
+    if (aos_event_set(&app_event_flags, APP_EVENT_MSG, AOS_EVENT_OR) != 0) {
+        // LOGE("MSG", "failed to set io event");
         return false;
     }
     
@@ -55,7 +55,7 @@ bool app_send_io_message(io_msg_t *msg)
  * @param ms 
  * @return bool 
  */
-bool app_recv_io_message(io_msg_t *msg, uint32_t ms)
+bool app_recv_message(app_msg_t *msg, uint32_t ms)
 {
     uint32_t size;
     
@@ -74,7 +74,7 @@ bool app_recv_io_message(io_msg_t *msg, uint32_t ms)
  * @return true 
  * @return false 
  */
-bool app_is_io_mesage_full()
+bool app_is_mesage_full()
 {
     if (aos_queue_get_count(&io_msg_queue) < IO_MSG_QUEUE_LEN){
         return false;
@@ -89,7 +89,7 @@ bool app_is_io_mesage_full()
  * @return true 
  * @return false 
  */
-bool app_is_io_message_empty()
+bool app_is_message_empty()
 {
     if (aos_queue_get_count(&io_msg_queue) == 0){
         return true;

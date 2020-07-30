@@ -18,52 +18,53 @@
  * 
  */
 typedef enum {
-    APP_EVENT_IO        = 0x00000001,       // 输入输出事件，用IO_MSG传递数据
-    APP_EVENT_BT        = 0x00000002,       // 蓝牙相关事件
+    APP_EVENT_MSG       = 0x00000001,       // 输入输出事件，用IO_MSG传递数据
     APP_EVENT_PM        = 0x00000004,       // 睡眠事件
+    APP_EVENT_VOICE     = 0x00000008,       // 语音事件
     APP_EVENT_ERR       = 0x80000000
 }app_event_t;
 
 
 /**
- * @brief IO消息定义
+ * @brief 系统消息类型
  * 
  */
 typedef enum {
-    IO_MSG_KEYSCAN,
-    IO_MSG_VOICE,
-    IO_MSG_IR,
-    IO_MSG_GPIO
-}io_msg_type_t;
+    MSG_KEYSCAN,        // 由按键扫描发送的消息
+    MSG_BT_GAP,         // 由GAP发出的消息
+    MSG_BT_GATT,        // 由GATT发出的消息
+}app_message_type_t;
 
 /**
- * @brief KEYSCAN sub-message types
+ * @brief 键盘扫描消息类型
  * 
  */
 typedef enum {
-    IO_MSG_KEYSCAN_KEY_DOWN,
-    IO_MSG_KEYSCAN_KEY_RELEASE
-}io_keyscan_t;
+    MSG_KEYSCAN_KEY_PRESSED,       // 有按键按下了
+    MSG_KEYSCAN_KEY_RELEASE,       // 有按键释放了
+    MSG_KEYSCAN_KEY_RELEASE_ALL,   // 所有按键都释放了
+}keyscan_message_type_t;
 
 /**
- * @brief VOICE sub-message types
+ * @brief 
  * 
  */
 typedef enum {
-    IO_MSG_VOICE_NEW_FRAME,
-}io_voice_t;
+    MSG_BT_GAP_CONNECTED,
+    MSG_BT_GAP_DISCONNECTED,
+}bt_gap_message_type_t;
+
+typedef enum {
+    MSG_BT_GATT_HID_OUT_CAPS,
+    MSG_BT_GATT_DIS,
+    MSG_BT_GATT_BAT,
+    MSG_BT_GATT_ATV_MIC_OPEN,
+    MSG_BT_GATT_ATV_MIC_STOP
+}bt_gatt_message_type_t;
+
 
 /**
- * @brief BT sub-message types
- * 
- */
-typedef enum{
-    BT_MSG_GATT_WRITE,
-    BT_MSG_GATT_READ,
-}bt_msg_t;
-
-/**
- * @brief IO消息结构体
+ * @brief 消息结构体
  * 
  */
 typedef struct
@@ -76,14 +77,14 @@ typedef struct
         void *lpMsgBuff;
         uint8_t data[4];
     };
-}io_msg_t;
+}app_msg_t;
 
 /**
  * @brief 初始化系统IO消息队列
  * 
  * @return bool 
  */
-bool app_init_io_message();
+bool app_init_message();
 
 /**
  * @brief 发送一条消息到消息队列
@@ -91,7 +92,7 @@ bool app_init_io_message();
  * @param msg 
  * @return bool 
  */
-bool app_send_io_message(io_msg_t *msg);
+bool app_send_message(app_msg_t *msg);
 
 /**
  * @brief 从消息队列取一条消息
@@ -100,7 +101,7 @@ bool app_send_io_message(io_msg_t *msg);
  * @param ms 
  * @return bool 
  */
-bool app_recv_io_message(io_msg_t *msg, uint32_t ms);
+bool app_recv_message(app_msg_t *msg, uint32_t ms);
 
 /**
  * @brief 
@@ -108,7 +109,7 @@ bool app_recv_io_message(io_msg_t *msg, uint32_t ms);
  * @return true 
  * @return false 
  */
-bool app_is_io_mesage_full();
+bool app_is_mesage_full();
 
 /**
  * @brief 
@@ -116,7 +117,7 @@ bool app_is_io_mesage_full();
  * @return true 
  * @return false 
  */
-bool app_is_io_message_empty();
+bool app_is_message_empty();
 
 /**
  * @brief 触发事件

@@ -181,7 +181,8 @@ void board_yoc_init(void)
     drv_pinmux_config(P9, UART_TX);
     drv_pinmux_config(P10, UART_RX);
 
-    console_init(CONSOLE_ID, 115200, 128);
+    // console_init(CONSOLE_ID, 115200, 128);
+    console_init(CONSOLE_ID, 768000, 128);
 
     mm_init();
 
