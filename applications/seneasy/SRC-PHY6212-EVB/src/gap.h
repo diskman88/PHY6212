@@ -54,7 +54,7 @@ typedef struct
     // bas_handle_t *bas;
     // dis_handle_t *dis;
     // hids_handle_t *hids;
-    // atvv_handle_t *atvv;
+    atvv_service_t *p_atvv;
 }ble_gap_state_t;
 
 typedef struct 

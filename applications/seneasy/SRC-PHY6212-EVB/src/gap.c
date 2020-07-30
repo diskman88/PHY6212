@@ -387,7 +387,7 @@ bool rcu_ble_init()
     hid_service_init();
     dis_service_init();
     battary_service_init();
-    atvv_service_init();
+    g_gap_data.p_atvv = atvv_service_init();
 
     _load_bond_info();
     if (bond_info.is_bonded == true) {
