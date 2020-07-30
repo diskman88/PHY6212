@@ -17,6 +17,8 @@
 #include <pm.h>
 #include <ap_cp.h>
 
+#include "../app_msg.h"
+
 #define DEBUG_CMD_KEYSCAN		1
 
 #define KSCAN_ROW_NUM	4
@@ -313,15 +315,15 @@ void cli_reg_cmd_keyscan()
 
 static const uint8_t kscan_one_key_map[14][2] = {
 	//scan code, key code
-	{ 1,  VK_KEY_1 },
-	{ 2,  VK_KEY_2 },
-	{ 3,  VK_KEY_3 },
-	{ 4,  VK_KEY_4 },
-	{ 5,  VK_KEY_5 },
-	{ 6,  VK_KEY_6 },
-	{ 7,  VK_KEY_7 },
-	{ 8,  VK_KEY_8 },
-	{ 9,  VK_KEY_9 },
+	{ 1,  VK_KEY_01 },
+	{ 2,  VK_KEY_02 },
+	{ 3,  VK_KEY_03 },
+	{ 4,  VK_KEY_04 },
+	{ 5,  VK_KEY_05 },
+	{ 6,  VK_KEY_06 },
+	{ 7,  VK_KEY_07 },
+	{ 8,  VK_KEY_08 },
+	{ 9,  VK_KEY_09 },
 	{ 10, VK_KEY_10 },
 	{ 11, VK_KEY_11 },
 	{ 12, VK_KEY_12 },
@@ -331,13 +333,14 @@ static const uint8_t kscan_one_key_map[14][2] = {
 
 static const uint8_t kscan_hold_key_map[2][2] = {
 	//scan code, key code
-	{ 1, VK_FUNC_3 },
+	{ 1, VK_KEY_FUNC1 },
 	{ 0, 0 }
 };
 
 static const uint8_t kscan_combin_key_map[5][3] = {
 	//scan code1, scan code2, key code
-	{ 5,	2, 		VK_FUNC_6},
+	{ 5,	3, 		VK_KEY_FUNC5},	
+	{ 5,	2, 		VK_KEY_FUNC6},
 	{ 0, 	0,		0},
 };
 
@@ -438,8 +441,10 @@ void keyscan_task(void * args)
 
 		// uint64_t t1 = csi_kernel_get_ticks();
 		// LOGI("KEYSCAN", "start with:%d", t1);
-		io_msg_t msg;
-		msg.type = IO_MSG_KEYSCAN;
+		app_msg_t msg;
+		msg.type = MSG_KEYSCAN;
+		msg.subtype = MSG_KEYSCAN_KEY_RELEASE_ALL;
+		msg.param = VK_KEY_NULL;
 		while (1) {
 			// 扫描按键,获取按键值
 			uint8_t key_num = kscan_read_keycode();
@@ -447,61 +452,64 @@ void keyscan_task(void * args)
 
 			// 有键按下
 			if (key_num != 0) {	
-				if (key_num == 1) {		// 单键按下
+				// 单键按下
+				if (key_num == 1) {		
 					if(keys_pressed[0]->is_changed) {
 						if (keys_pressed[0]->state == KEY_DOWN) {		// 单键按下
-							msg.subtype = IO_MSG_KEYSCAN_KEY_DOWN;
+							msg.subtype = MSG_KEYSCAN_KEY_PRESSED;
 							msg.param = get_one_key(keys_pressed[0]->code);
 						}
 						if (keys_pressed[0]->state == KEY_HOLD) {		// 单键长按
-							msg.subtype = IO_MSG_KEYSCAN_KEY_DOWN;
+							msg.subtype = MSG_KEYSCAN_KEY_PRESSED;
 							msg.param = get_hold_key(keys_pressed[0]->code);	
 						}
-						
-						LOGI("KEYSCAN", "vk: 1 key pressed:%2X, scan code = %d", msg.param, keys_pressed[0]->code);
+						// 发送系统消息
+						if (msg.param != 0) {
+							if (app_send_message(&msg) == false) {
+								LOGE("KEYSCAN", "send message failed");
+							}
+							is_vk_pressed = true;
+						}	
+						// LOGI("KEYSCAN", "vk: 1 key pressed:%2X, scan code = %d", msg.param, keys_pressed[0]->code);
 					}
 				}
-				if (key_num == 2) {				// 双键按下
+				// 双键按下
+				if (key_num == 2) {				
 					if (keys_pressed[0]->is_changed || keys_pressed[1]->is_changed) {
 						// 只处理按键按下事件
 						if (keys_pressed[0]->state == KEY_DOWN || keys_pressed[1]->state == KEY_DOWN) {
-							msg.subtype = IO_MSG_KEYSCAN_KEY_DOWN;
+							msg.subtype = MSG_KEYSCAN_KEY_PRESSED;
 							msg.param = get_combin_key(keys_pressed[0]->code, keys_pressed[1]->code);
+						}	
+						// 发送系统消息
+						if (msg.param != 0) {
+							if (app_send_message(&msg) == false) {
+								LOGE("KEYSCAN", "send message failed");
+							}
+							is_vk_pressed = true;
 						}					
-						LOGI("KEYSCAN", "vk: 2 key pressed:%2X, scan code = %d,%d", msg.param, keys_pressed[0]->code, keys_pressed[1]->code);
+						// LOGI("KEYSCAN", "vk: 2 key pressed:%2X, scan code = %d,%d", msg.param, keys_pressed[0]->code, keys_pressed[1]->code);
 					}
 				}
-
-				if (msg.param != 0) {
-					if (app_send_io_message(&msg) == false) {
-						LOGI("KEYSCAN", "send message failed");
-					}
-					msg.param = 0;
-					is_vk_pressed = true;
-				}				
-
 				// 3键及更多按键按下
 				if (key_num > 2) {
 					continue;
-				}			
+				}						
 			}
 			// 按键松开
 			else {
 				if (is_vk_pressed) {
-					msg.subtype = IO_MSG_KEYSCAN_KEY_RELEASE;
-					msg.param = 0;
-					if (app_send_io_message(&msg)) {
-						LOGI("KSCAN", "key release");
+					msg.subtype = MSG_KEYSCAN_KEY_RELEASE_ALL;
+					if (app_send_message(&msg)) {
+						is_vk_pressed = false;
+						break;	// 退出循环
+					} else {
+						// ！！！！按键释放未发送成功，需要再次发送
+						LOGE("KEYSCAN", "send message failed");
 					}
-					is_vk_pressed = false;
 				}
-
-				// aos_timer_stop(&kscan_timer);
-				break;		// 退出循环
 			}
-
 			// aos_sem_wait(&sem_keyscan_start, AOS_WAIT_FOREVER);
-
 			// // 按键超时, 任意按键按下超过5S
 			// if ((csi_kernel_get_ticks() - t1) > 5000) {
 			// 	break;
@@ -515,8 +523,6 @@ void keyscan_task(void * args)
 		// csi_kernel_delay_ms(50); 	// 消除按键松开抖动
 		kscan_row_interrupt_enable();
 		enableSleepInPM(0x02);
-
-
 	}
 }
 
