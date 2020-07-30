@@ -30,7 +30,10 @@ L_SRCS += $(addprefix services/, $(notdir $(wildcard src/services/*.c)))
 # $(warning $(wildcard src/services/*.c))
 
 # drivers
-L_SRCS += drivers/keyscan.c
+L_SRCS += drivers/keyscan.c \
+          drivers/voice/voice_driver.c \
+          drivers/voice/ima_adpcm.c 
+        #   drivers/voice/sbc.c   
 
 L_INCS := include \
           ../../../csi/csi_kernel/rhino/core/include \

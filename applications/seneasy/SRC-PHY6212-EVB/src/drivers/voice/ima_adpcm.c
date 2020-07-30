@@ -25,12 +25,12 @@
 adpcm_state_t ima_adpcm_global_state;
 
 /* Intel ADPCM step variation table */
-static int indexTable[16] = {
+static const int indexTable[16] = {
     -1, -1, -1, -1, 2, 4, 6, 8,
     -1, -1, -1, -1, 2, 4, 6, 8,
 };
 
-static int stepsizeTable[89] = {
+static const int stepsizeTable[89] = {
     7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
     19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
     50, 55, 60, 66, 73, 80, 88, 97, 107, 118,
@@ -42,26 +42,26 @@ static int stepsizeTable[89] = {
     15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
 };
 
-int ima_adpcm_encoder(short *p_pcm_data, char *p_adpcm_data, int len, adpcm_state_t *state)
+void __attribute__((section("retention_mem_area0"))) ima_adpcm_encoder(short *p_pcm_data, char *p_adpcm_data, int len)
 {
     short *inp;			/* Input buffer pointer */
     signed char *outp;	/* output buffer pointer */
     int val;			/* Current input sample value */
     int code;			/* Current adpcm output value */
     int diff;			/* Difference between val and valprev */
-    int step;			/* Stepsize */
-    int valpred;		/* Predicted output value */
     int vpdiff;			/* Current change to valpred */
-    int index;			/* Current step change index */
-    int outputbuffer = 0;	/* place to keep previous 4-bit value */
-    int bufferstep;		/* toggle between outputbuffer/output */
+    int step,tempstep;			/* Stepsize */
+    short valpred;		/* Predicted output value */
+    short index;			/* Current step change index */
+    char outputbuffer = 0;	/* place to keep previous 4-bit value */
+    char bufferstep;		/* toggle between outputbuffer/output */
 
     outp = (signed char *)p_adpcm_data;
     inp = p_pcm_data;
 
 	// 恢复上次的预测值Sp和量化器步进大小索引
-    valpred = state->valprev;
-    index = state->index;
+    valpred = ima_adpcm_global_state.valprev;
+    index = ima_adpcm_global_state.index;
     step = stepsizeTable[index];
     bufferstep = 1;
 	
@@ -90,28 +90,35 @@ int ima_adpcm_encoder(short *p_pcm_data, char *p_adpcm_data, int len, adpcm_stat
 		 * but in shift step bits are dropped. The net result of this is
 		 * that even if you have fast mul/div hardware you cannot put it to
 		 * good use since the fixup would be too expensive.
-		 * 
-		 * 用量化步进值q计算diff的量化值,同步计算反量化后的预测差值dq
+		 * 用step量化当前diff，code为量化值
 		 */
-		vpdiff = (step >> 3);
-
-		if ( diff >= step ) {
+		tempstep = step;
+		if ( diff >= tempstep ) {
 			code |= 4;
-			diff -= step;
-			vpdiff += step;
+			diff -= tempstep;
 		}
-		step >>= 1;
-		if ( diff >= step  ) {
+		tempstep >>= 1;
+		if ( diff >= tempstep  ) {
 			code |= 2;
-			diff -= step;
-			vpdiff += step;
+			diff -= tempstep;
 		}
-		step >>= 1;
-		if ( diff >= step ) {
+		tempstep >>= 1;
+		if ( diff >= tempstep ) {
 			code |= 1;
+		}
+		/* Inverse quantize the ADPCM code into a predicted difference
+		 * using the quantizer step size
+		 */
+		vpdiff = step >> 3;
+		if (code & 0x04) {
 			vpdiff += step;
 		}
-
+		if (code & 0x02) {
+			vpdiff += (step >> 1);
+		}
+		if (code & 0x01) {
+			vpdiff += (step >> 2);
+		}
 		/** Step 3 - Update previous value
 		 *  用反量化的预测差值dq更新预测值,
 		 *  注:量化误差(d-dq)会保存在这个差值中
@@ -148,11 +155,11 @@ int ima_adpcm_encoder(short *p_pcm_data, char *p_adpcm_data, int len, adpcm_stat
     if ( !bufferstep )
       *outp++ = outputbuffer;
     
-    state->valprev = valpred;
-    state->index = index;
+    ima_adpcm_global_state.valprev = valpred;
+    ima_adpcm_global_state.index = index;
 }
 
-void adpcm_decoder(char indata[], short outdata[], int len, adpcm_state *state)
+void adpcm_decoder(char indata[], short outdata[], int len, adpcm_state_t *state)
 {
     signed char *inp;		/* Input buffer pointer */
     short *outp;		/* output buffer pointer */

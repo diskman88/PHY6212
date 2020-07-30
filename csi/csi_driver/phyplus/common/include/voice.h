@@ -159,9 +159,16 @@ typedef struct _voice_Cfg_t{
 }voice_Cfg_t;
 
 // Voice event structure
+// typedef struct _voice_Evt_t{
+//   int       type;
+//   uint32_t* data;
+//   uint32_t  size;
+// }voice_Evt_t;
+
+// 只使用单声道的数据，Z.K.H@2020.07.26
 typedef struct _voice_Evt_t{
   int       type;
-  uint32_t* data;
+  short* data;
   uint32_t  size;
 }voice_Evt_t;
 

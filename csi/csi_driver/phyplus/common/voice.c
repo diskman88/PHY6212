@@ -60,7 +60,7 @@
 #define  MIC_BIAS_GPIO     P20
 static voice_Ctx_t mVoiceCtx;
 
-static uint32_t voice_data[HALF_VOICE_WORD_SIZE];
+static short voice_data[MAX_VOICE_WORD_SIZE];
 
 // Enable voice core
 void phy_voice_enable(void)
@@ -208,32 +208,48 @@ static void phy_set_voice_amute_cfg(
  *
  * @return      None.
  **************************************************************************************/
+typedef union 
+{
+    struct
+    {
+        uint16_t left;
+        uint16_t right;
+    }stereo;
+    uint32_t ad_value;
+    /* data */
+}pcm_data_t;
+
 void __attribute__((used)) phy_ADC_VoiceIRQHandler(void)
 {
+    // static uint8_t buff_index = 0;
+    pcm_data_t d;
     //uint32_t voice_data[HALF_VOICE_SAMPLE_SIZE];
     //LOG("Voice interrupt processing\n");
     MASK_VOICE_INT;
-
     if (GET_IRQ_STATUS & BIT(8)) {
         int n;
         for (n = 0; n < HALF_VOICE_WORD_SIZE; n++) {
-            voice_data[n] = (uint32_t)(read_reg(VOICE_BASE + n * 4));
+            d.ad_value = (uint32_t)(read_reg(VOICE_BASE + n * 4));
+            // voice_data[n] = d.stereo.left;
+            voice_data[n] = d.stereo.right;
         }
         CLEAR_VOICE_HALF_INT;
         while (IS_CLAER_VOICE_HALF_INT) {}
 
-        if (mVoiceCtx.evt_handler) {
-            voice_Evt_t evt;
-            evt.type = HAL_VOICE_EVT_DATA;
-            evt.data = voice_data;
-            evt.size = HALF_VOICE_WORD_SIZE;
-            mVoiceCtx.evt_handler(&evt);
-        }
+        // if (mVoiceCtx.evt_handler) {
+        //     voice_Evt_t evt;
+        //     evt.type = HAL_VOICE_EVT_DATA;
+        //     evt.data = voice_data;
+        //     evt.size = HALF_VOICE_WORD_SIZE;
+        //     mVoiceCtx.evt_handler(&evt);
+        // }
     }
     else if (GET_IRQ_STATUS & BIT(9)) {
         int n;
         for (n = 0; n < HALF_VOICE_WORD_SIZE; n++) {
-        voice_data[n] = (uint32_t)(read_reg(VOICE_MID_BASE + n * 4));
+            d.ad_value = (uint32_t)(read_reg(VOICE_MID_BASE + n * 4));
+            // voice_data[n + HALF_VOICE_WORD_SIZE] = d.stereo.left;
+            voice_data[n + HALF_VOICE_WORD_SIZE] = d.stereo.right;
         }
         CLEAR_VOICE_FULL_INT;
         while (IS_CLAER_VOICE_FULL_INT) {}
@@ -242,12 +258,14 @@ void __attribute__((used)) phy_ADC_VoiceIRQHandler(void)
             voice_Evt_t evt;
             evt.type = HAL_VOICE_EVT_DATA;
             evt.data = voice_data;
-            evt.size = HALF_VOICE_WORD_SIZE;
+            evt.size = HALF_VOICE_WORD_SIZE * 2;
             mVoiceCtx.evt_handler(&evt);
         }
+        // // 在缓冲区之间切换
+        // buff_index++;
+        // buff_index = buff_index & 0x03;
     }
-
-  ENABLE_VOICE_INT;
+    ENABLE_VOICE_INT;
 }
 
 /**************************************************************************************
