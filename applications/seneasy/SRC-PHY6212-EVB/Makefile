@@ -34,6 +34,8 @@ MK_OUT_PATH:=  out
 MK_OUT_PATH_LIB:= $(MK_OUT_PATH)/lib
 MK_GENERATED_IMGS_PATH:=generated
 
+### firmware release name
+FW_RELEASE = SRC-PHY6212-EVB-$(strip $(shell git describe --dirty --always))
 
 #####################################################################
 DEFINE_LOCAL:= $(YOC_DIR)/tools/build/core/define_local.mk
@@ -126,6 +128,7 @@ ifeq ($(CONFIG_CPU_CM0),y)
 	$(CPRE) $(YOC_DIR)/tools/build/product$(EXE_EXT) image $(MK_GENERATED_IMGS_PATH)/images.zip -i $(MK_GENERATED_IMGS_PATH)/data -p -l -v "v1.0"
 	$(CPRE) $(YOC_DIR)/tools/build/product$(EXE_EXT) image $(MK_GENERATED_IMGS_PATH)/images.zip -e $(MK_GENERATED_IMGS_PATH) -x
 	$(CPRE) cp $(MK_GENERATED_IMGS_PATH)/total_image.hex $(MK_GENERATED_IMGS_PATH)/total_image.hexf
+	$(CPRE) cp $(MK_GENERATED_IMGS_PATH)/total_image.hex $(MK_GENERATED_IMGS_PATH)/$(FW_RELEASE).hexf
 	$(CPRE) rm -fr $(MK_GENERATED_IMGS_PATH)/data
 else
 	$(CPRE) cp $(TARGETS_ROOT_PATH)/bootimgs/boot $(MK_GENERATED_IMGS_PATH)/data/
