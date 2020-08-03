@@ -333,14 +333,14 @@ static const uint8_t kscan_one_key_map[14][2] = {
 
 static const uint8_t kscan_hold_key_map[2][2] = {
 	//scan code, key code
-	{ 1, VK_KEY_FUNC1 },
+	// { 1, VK_KEY_FUNC1 },
 	{ 0, 0 }
 };
 
 static const uint8_t kscan_combin_key_map[5][3] = {
 	//scan code1, scan code2, key code
-	{ 5,	3, 		VK_KEY_FUNC5},	
-	{ 5,	2, 		VK_KEY_FUNC6},
+	{ 10,	3, 		VK_KEY_FUNC1},	
+	// { 5,	2, 		VK_KEY_FUNC2},
 	{ 0, 	0,		0},
 };
 

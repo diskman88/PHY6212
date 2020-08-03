@@ -33,7 +33,6 @@ UTASK_QUEUE_BUF_DEFINE(cli_task_queue, QUEUE_MSG_COUNT * 2);
 
 #define INIT_TASK_STACK_SIZE 2048
 static cpu_stack_t app_stack[INIT_TASK_STACK_SIZE / 2];
-
 /*
  * 堆栈初始化
  * 
@@ -44,14 +43,12 @@ static void mm_init()
     mm_initialize(&g_mmheap, mm_heap, sizeof(mm_heap));
 }
 
-
 extern void registers_save(uint32_t *mem, uint32_t *addr, int size);
 static uint32_t usart_regs_saved[5];
 static void usart_prepare_sleep_action(void)
 {
     uint32_t addr = 0x40004000;
     uint32_t read_num = 0;
-
     // 清空 Receive FIFO
     while (*(volatile uint32_t *)(addr + 0x14) & 0x1) {
         *(volatile uint32_t *)addr;
@@ -95,22 +92,15 @@ static void usart_wakeup_action(void)
 
 extern void kscan_wakeup_action();
 extern void kscan_prepare_sleep_action();
-
 /*
  * 准备进入休眠
  */
 int pm_prepare_sleep_action()
 {
     hal_ret_sram_enable(RET_SRAM0 | RET_SRAM1 | RET_SRAM2);
-    // csi_gpio_prepare_sleep_action();
-
-    // usart_prepare_sleep_action();
-    csi_usart_prepare_sleep_action(0);
-
     kscan_prepare_sleep_action();
-
-    // LOGI("PM", "device prepare to enter sleep");
-    csi_pinmux_prepare_sleep_action();    
+    usart_prepare_sleep_action();
+    csi_pinmux_prepare_sleep_action();
     return 0;
 }
 /* 
@@ -119,15 +109,10 @@ int pm_prepare_sleep_action()
 int pm_after_sleep_action()
 {
     csi_pinmux_wakeup_sleep_action();
-    // csi_gpio_wakeup_sleep_action();
     kscan_wakeup_action();
-
     drv_pinmux_config(P9, UART_TX);
     drv_pinmux_config(P10, UART_RX);
-    csi_usart_wakeup_sleep_action(0);
-    // usart_wakeup_action();
-
-    // LOGI("PM", "device wakeup");
+    usart_wakeup_action();
     return 0;
 }
 
@@ -202,12 +187,11 @@ void board_yoc_init(void)
     extern void board_ble_init(void);
     board_ble_init();
 
-    board_sys_init();
+    // board_sys_init();
     // board_leds_init();
     // board_keys_init();
     
     /* uService init */
     utask_new_ext(&cli_task, "at&cli", cli_task_stack, 2 * 1024, cli_task_queue, QUEUE_MSG_COUNT * 2, AOS_DEFAULT_APP_PRI);
-
     board_cli_init(&cli_task);
 }

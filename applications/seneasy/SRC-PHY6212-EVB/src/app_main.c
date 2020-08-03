@@ -97,49 +97,76 @@ void Light_Led(CTRL_LED usdata)
 
 void rcu_send_hid_kb(kscan_key_t vk)
 {
-    const struct { kscan_key_t vk; press_key_data kb;} vk_to_keyboard_map[10+1] = {
+// | 键名  | code | IR | HID |
+// | :--- | :---: | :---: | :---: |
+// | Power| S1  | 0x12 | 0x0066 |
+// | Mute | S8  | 0x10 | 0x007F |
+// | Home | S13 | 0x51 | 0x004A |
+// | Menu | S9  | 0x5B | 0x0076 |
+// | Vol- | S12 | 0x1E | 0x0081 |
+// | Vol+ | S11 | 0x1A | 0x0080 |
+// | Up   | S6  | 0x19 | 0x0052 |
+// | Down | S7  | 0x1D | 0x0051 |
+// | Left | S5  | 0x46 | 0x0050 |
+// | Right| S2  | 0x47 | 0x004f |
+// | OK   | S3  | 0x0A | 0x0058 |
+// | Back | S10 | 0x40 | 0x0029 |
+// | Voice| S4  | 0x61 | 0x0075 |
+    const struct { kscan_key_t vk; press_key_data kb;} vk_to_keyboard_map[13+1] = {
         [0] = {
-            .vk = VK_KEY_01,
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x1E, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+            .vk = VK_KEY_01,    // POWER
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x66, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
         }, 
         [1] = {
-            .vk = VK_KEY_02,
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x1F, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+            .vk = VK_KEY_08,    // MUTE
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x7F, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
         },
         [2] = {
-            .vk = VK_KEY_03,
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x20, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+            .vk = VK_KEY_13,    // HOME
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x4A, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
         },
         [3] = {
-            .vk = VK_KEY_04,
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x21, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+            .vk = VK_KEY_09,    // MENU
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x76, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
         },
         [4] = {
-            .vk = VK_KEY_05,
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x22, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+            .vk = VK_KEY_12,    // VOL-
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x1E, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
         },
         [5] = {
-            .vk = VK_KEY_06,
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x23, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+            .vk = VK_KEY_11,    // VOL+
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x1A, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
         },
         [6] = {
-            .vk = VK_KEY_07,
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x24, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+            .vk = VK_KEY_06,    // UP
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x52, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
         },
         [7] = {
-            .vk = VK_KEY_08,
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x25, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+            .vk = VK_KEY_07,    // DOWN
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x51, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
         },
         [8] = {
-            .vk = VK_KEY_09,
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x26, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+            .vk = VK_KEY_05,    // LEFT
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x50, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
         },
         [9] = {
-            .vk = VK_KEY_10,
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x27, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+            .vk = VK_KEY_02,    // RIGHT
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x4F, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
         },
-        // VK=0时，释放按键
         [10] = {
+            .vk = VK_KEY_03,    // OK
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x58, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        },
+        [11] = {
+            .vk = VK_KEY_10,    // BACK
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x29, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        },
+        [12] = {
+            .vk = VK_KEY_04,    // VOICE
+            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x75, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        },        
+        // VK=0时，释放按键
+        [13] = {
             .vk = 0,
             .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x00, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
         }
@@ -163,6 +190,7 @@ void rcu_send_hid_kb(kscan_key_t vk)
 void rcu_vk_handle(kscan_key_t vk, int16_t state)
 {
     if (state == MSG_KEYSCAN_KEY_PRESSED) {
+        // 语音键处理
         // 实体键处理
         if (vk < VK_KEY_FUNC) {
             // 1.hid keyboad 按键处理
@@ -172,7 +200,7 @@ void rcu_vk_handle(kscan_key_t vk, int16_t state)
         else {
             switch (vk) {
                 // 配对按键处理
-                case VK_KEY_FUNC6:
+                case VK_KEY_FUNC1:
                     rcu_ble_pairing();
                     break;
                 default:    
@@ -201,7 +229,6 @@ void app_message_handle(app_msg_t *msg)
         case MSG_BT_GAP:
             break;
         case MSG_BT_GATT:
-
             if (msg->subtype == MSG_BT_GATT_ATV_MIC_OPEN) {
                 if(g_gap_data.p_atvv->char_rx_cccd & CCC_VALUE_NOTIFY) {
                     voice_handle_mic_start();
@@ -209,7 +236,6 @@ void app_message_handle(app_msg_t *msg)
                     LOGI(TAG, "voice service not enable");
                 }
             }
-
             if (msg->subtype == MSG_BT_GATT_ATV_MIC_STOP) {
                 voice_handle_mic_stop();
             }
@@ -265,11 +291,9 @@ int app_main(int argc, char *argv[])
             voice_trans_frame_t frame;
             bool first = true;
             uint16_t start = 0;
-            uint16_t lost = 0;
-
             int err = 0;
             int retry = 0;
-            while (voice_fifo_top(&frame)) {    // 获取FIFO头
+            while (voice_fifo_top(&frame)) {    // 指向FIFO头部
                 if (first) {
                     first = false;
                     start = frame.seq_id;
@@ -278,31 +302,18 @@ int app_main(int argc, char *argv[])
                 //    如果发送失败(数据缓冲区满)，退出本次发送
                 //    如果发送成功，队列弹出一位
                 if (atvv_voice_send((uint8_t *)&frame, sizeof(voice_trans_frame_t))) {
-                    lost++;
+                    err++;
                     break;
-                } else {   // 发送成功，队列出列
+                } else {   
+                    // 发送成功，弹出头部元素
                     voice_fifo_pop();
                 }
 
-                // 最多连续发送20位
+                // 继续发送，最多连续发送20帧
                 retry++;
                 if (retry > 20) break;
-
-                // retry = 0;
-                // do {
-                //     err = atvv_voice_send((uint8_t *)&frame, sizeof(voice_trans_frame_t));
-                //     if (err != 0) {
-                //         break;
-                //         aos_msleep(2);
-                //         retry++;
-                //         if(retry > 10) {
-                //             LOGE("APP", "ble send voice data unsuccessed, data may be lost:0x%x", err);
-                //             break;
-                //         }                        
-                //     }
-                // }while (err);
             }
-            LOGI("APP", "voice trans start=%d， end=%d， lost=%d", start, frame.seq_id, lost);
+            LOGI("APP", "voice trans start=%d， end=%d， lost=%d", start, frame.seq_id, err);
         }
     }
     
