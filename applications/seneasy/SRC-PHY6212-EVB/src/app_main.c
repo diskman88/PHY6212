@@ -31,6 +31,7 @@
 
 #include "drivers/keyscan.h"
 #include "drivers/voice/voice_driver.h"
+#include "drivers/ir_nec.h"
 
 #include "services/hid_service.h"
 
@@ -87,98 +88,122 @@ void Light_Led(CTRL_LED usdata)
     }
 }
 
-// typedef struct 
-// {
-//     kscan_key_t vk;
-//     press_key_data kb;
-// }vk_keyboard_map_t;
+/**
+ * @brief 
+ * | 键名  | code | IR | HID |
+ * | :--- | :---: | :---: | :---: |
+ * | Power| S1  | 0x12 | 0x0066 |
+ * | Mute | S8  | 0x10 | 0x007F |
+ * | Home | S13 | 0x51 | 0x004A |
+ * | Menu | S9  | 0x5B | 0x0076 |
+ * | Vol- | S12 | 0x1E | 0x0081 |
+ * | Vol+ | S11 | 0x1A | 0x0080 |
+ * | Up   | S6  | 0x19 | 0x0052 |
+ * | Down | S7  | 0x1D | 0x0051 |
+ * | Left | S5  | 0x46 | 0x0050 |
+ * | Right| S2  | 0x47 | 0x004f |
+ * | OK   | S3  | 0x0A | 0x0058 |
+ * | Back | S10 | 0x40 | 0x0029 |
+ * | Voice| S4  | 0x61 | 0x0075 |
+ */
+#define RCU_KEY_NUM     13
+const struct { kscan_key_t vk; press_key_data hid_key; uint8_t ir_key;} vk_map_table[RCU_KEY_NUM] = {
+    [0] = {
+        .vk = VK_KEY_01,    // POWER
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x66, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x12,
+    }, 
+    [1] = {
+        .vk = VK_KEY_08,    // MUTE
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x7F, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x10,
+    },
+    [2] = {
+        .vk = VK_KEY_13,    // HOME
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x4A, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x51,
+    },
+    [3] = {
+        .vk = VK_KEY_09,    // MENU
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x76, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x5B,
+    },
+    [4] = {
+        .vk = VK_KEY_12,    // VOL-
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x1E, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x1E,
+    },
+    [5] = {
+        .vk = VK_KEY_11,    // VOL+
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x1A, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x1A,
+    },
+    [6] = {
+        .vk = VK_KEY_06,    // UP
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x52, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x19,
+    },
+    [7] = {
+        .vk = VK_KEY_07,    // DOWN
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x51, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x1D,
+    },
+    [8] = {
+        .vk = VK_KEY_05,    // LEFT
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x50, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x46,
+    },
+    [9] = {
+        .vk = VK_KEY_02,    // RIGHT
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x4F, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x47,
+    },
+    [10] = {
+        .vk = VK_KEY_03,    // OK
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x58, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x0A,
+    },
+    [11] = {
+        .vk = VK_KEY_10,    // BACK
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x29, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x40,
+    },
+    [12] = {
+        .vk = VK_KEY_04,    // VOICE
+        .hid_key = {.keydata = {{0}}, .Rsv=0, .Code1=0x75, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
+        .ir_key = 0x61,
+    },        
+};
 
-// const vk_keyboard_map_t vk_to_keyboard_map[10 + 1]= {
+press_key_data vk_to_hid_key(kscan_key_t vk)
+{
+    press_key_data key = {.keydata = {{0}}, .Rsv=0, .Code1=0, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 };
+    for(int i = 0; i < RCU_KEY_NUM; i++) {
+        if (vk == vk_map_table[i].vk) {
+            key = vk_map_table[i].hid_key;
+            break;
+        }
+    }
+    return key;
+}
+
+uint8_t vk_to_ir_key(kscan_key_t vk) 
+{
+    uint8_t key = 0;
+    for(int i = 0; i < RCU_KEY_NUM; i++) {
+        if (vk == vk_map_table[i].vk) {
+            key = vk_map_table[i].ir_key;
+            break;
+        }        
+    }
+    return key;
+}
+
 
 void rcu_send_hid_kb(kscan_key_t vk)
 {
-// | 键名  | code | IR | HID |
-// | :--- | :---: | :---: | :---: |
-// | Power| S1  | 0x12 | 0x0066 |
-// | Mute | S8  | 0x10 | 0x007F |
-// | Home | S13 | 0x51 | 0x004A |
-// | Menu | S9  | 0x5B | 0x0076 |
-// | Vol- | S12 | 0x1E | 0x0081 |
-// | Vol+ | S11 | 0x1A | 0x0080 |
-// | Up   | S6  | 0x19 | 0x0052 |
-// | Down | S7  | 0x1D | 0x0051 |
-// | Left | S5  | 0x46 | 0x0050 |
-// | Right| S2  | 0x47 | 0x004f |
-// | OK   | S3  | 0x0A | 0x0058 |
-// | Back | S10 | 0x40 | 0x0029 |
-// | Voice| S4  | 0x61 | 0x0075 |
-    const struct { kscan_key_t vk; press_key_data kb;} vk_to_keyboard_map[13+1] = {
-        [0] = {
-            .vk = VK_KEY_01,    // POWER
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x66, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        }, 
-        [1] = {
-            .vk = VK_KEY_08,    // MUTE
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x7F, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },
-        [2] = {
-            .vk = VK_KEY_13,    // HOME
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x4A, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },
-        [3] = {
-            .vk = VK_KEY_09,    // MENU
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x76, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },
-        [4] = {
-            .vk = VK_KEY_12,    // VOL-
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x1E, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },
-        [5] = {
-            .vk = VK_KEY_11,    // VOL+
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x1A, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },
-        [6] = {
-            .vk = VK_KEY_06,    // UP
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x52, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },
-        [7] = {
-            .vk = VK_KEY_07,    // DOWN
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x51, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },
-        [8] = {
-            .vk = VK_KEY_05,    // LEFT
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x50, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },
-        [9] = {
-            .vk = VK_KEY_02,    // RIGHT
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x4F, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },
-        [10] = {
-            .vk = VK_KEY_03,    // OK
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x58, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },
-        [11] = {
-            .vk = VK_KEY_10,    // BACK
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x29, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },
-        [12] = {
-            .vk = VK_KEY_04,    // VOICE
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x75, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        },        
-        // VK=0时，释放按键
-        [13] = {
-            .vk = 0,
-            .kb = {.keydata = {{0}}, .Rsv=0, .Code1=0x00, .Code2=0, .Code3=0, .Code4=0, .Code5=0, .Code6=0 },
-        }
-    };
-    int i = 0; 
-    do {
-        if (vk == vk_to_keyboard_map[i].vk) {
-            press_key_data hid_keys = vk_to_keyboard_map[i].kb;
-            key_board_send(&hid_keys);
-            break;
-        }
-    }while(vk_to_keyboard_map[i++].vk != 0);
+
+
 }
 
 /**
@@ -189,12 +214,20 @@ void rcu_send_hid_kb(kscan_key_t vk)
  */
 void rcu_vk_handle(kscan_key_t vk, int16_t state)
 {
+    // 有按键按下:
     if (state == MSG_KEYSCAN_KEY_PRESSED) {
         // 语音键处理
         // 实体键处理
         if (vk < VK_KEY_FUNC) {
             // 1.hid keyboad 按键处理
-            rcu_send_hid_kb(vk);
+            if (g_gap_data.state == GAP_STATE_CONNECTED) {
+                press_key_data hid_key = vk_to_hid_key(vk);
+                hid_key_board_send(&hid_key);
+            } else {
+                uint8_t ir_key = vk_to_ir_key(vk);
+                LOGI("APP", "Send IR CODE %x", ir_key);
+                ir_nec_start_send(0x40, ir_key);
+            }
         } 
         // 功能键处理
         else {
@@ -207,8 +240,15 @@ void rcu_vk_handle(kscan_key_t vk, int16_t state)
                     break;
             }
         }
-    } else {
-        rcu_send_hid_kb(0);
+    }
+    // 按键松开:
+    else {
+        if (g_gap_data.state == GAP_STATE_CONNECTED) {
+            press_key_data hid_key = {0};
+            hid_key_board_send(&hid_key);
+        } else {
+            ir_nec_stop_send();
+        }
     }
 }
 
@@ -256,11 +296,14 @@ int app_main(int argc, char *argv[])
     // 构建消息队列
     app_init_message();
 
+    // ir_nec_start_send(0x55, 0x01);
     // 按键扫描在独立的线程运行
     create_keyscan_task();
+    // ir_nec_start_send(0x55, 0x31);
 
     // 启动蓝牙
     rcu_ble_init();
+
 
 #ifdef __DEBUG__
     cli_reg_cmd_keysend();

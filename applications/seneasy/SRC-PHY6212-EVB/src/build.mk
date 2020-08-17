@@ -23,17 +23,20 @@ L_MODULE := libmain
 L_SRCS += init/cli_cmd.c \
           init/init.c
 
+# application
 L_SRCS += app_main.c app_msg.c gap.c
 
 # ble services
-L_SRCS += $(addprefix services/, $(notdir $(wildcard src/services/*.c)))
+SRC_BLE_SERVICES = $(addprefix services/, $(notdir $(wildcard src/services/*.c)))
 # $(warning $(wildcard src/services/*.c))
 
 # drivers
-L_SRCS += drivers/keyscan.c \
-          drivers/voice/voice_driver.c \
-          drivers/voice/ima_adpcm.c 
-        #   drivers/voice/sbc.c   
+SRC_DRVERS =  drivers/keyscan.c \
+              drivers/voice/voice_driver.c \
+              drivers/voice/ima_adpcm.c \
+              drivers/ir_nec.c
+
+L_SRCS += ${SRC_BLE_SERVICES} ${SRC_DRVERS}
 
 L_INCS := include \
           ../../../csi/csi_kernel/rhino/core/include \
