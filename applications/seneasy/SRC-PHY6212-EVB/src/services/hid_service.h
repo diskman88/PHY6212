@@ -236,6 +236,6 @@ typedef union {
 
 int hid_service_init();
 
-int key_board_send(press_key_data *senddata);
+int hid_key_board_send(press_key_data *senddata);
 
 #endif

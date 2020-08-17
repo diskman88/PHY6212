@@ -71,7 +71,7 @@ static void event_output_write(ble_event_en event, void *event_data)
     }
 }
 
-int key_board_send(press_key_data *senddata)
+int hid_key_board_send(press_key_data *senddata)
 {
     int iflag = 0;
 
