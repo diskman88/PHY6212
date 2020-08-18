@@ -193,13 +193,21 @@ int ir_nec_start_send(uint8_t custom, uint8_t key)
     PWM0_CTL1 = ((421-126) << 16) | (421U);    // 频率38K(周期=26.31uS)，占空比1/3
     PWM0_CTL0 |= (1U << 16);              // 参数更新使能
     // 3.引脚配置
-    // 引脚配置为下拉
-    *(volatile uint32_t *)(0x4000F000 + 0x08) &= ~(0x03 << 13);         // b[14:13]:clear pull control of pin 4 (3*(Padx) + 1)
-    *(volatile uint32_t *)(0x4000F000 + 0x08) |= (0x3 << 13);           // 00:floating; 01:weak pull up; 10:strong pull up; 11:pull down  
+    // P04引脚配置为下拉
+    // *(volatile uint32_t *)(0x4000F000 + 0x08) &= ~(0x03 << 13);         // b[14:13]:clear pull control of pin 4 (3*(Padx) + 1)
+    // *(volatile uint32_t *)(0x4000F000 + 0x08) |= (0x3 << 13);           // 00:floating; 01:weak pull up; 10:strong pull up; 11:pull down  
+    // P04引脚映射到PWM0
+    // *(volatile uint32_t *)(0x40003800 + 0x0C) |= (1U << 4);             // 引脚使能多路映射功能
+    // *(volatile uint32_t *)(0x40003800 + 0x1C) &= ~(0x3F << 0);         // clear pad4 full mux function select b[5:0]
+    // *(volatile uint32_t *)(0x40003800 + 0x1C) |= (PWM0 << 0);          // pad4 select function = PWM0(10)   
 
-    *(volatile uint32_t *)(0x40003800 + 0x0C) |= (1U << 4);             // 引脚使能多路映射功能
-    *(volatile uint32_t *)(0x40003800 + 0x1C) &= ~(0x3F << 0);         // clear pad4 full mux function select b[5:0]
-    *(volatile uint32_t *)(0x40003800 + 0x1C) |= (PWM0 << 0);          // pad4 select function = PWM0(10)   
+    // P06引脚配置为下拉
+    *(volatile uint32_t *)(0x4000F000 + 0x08) &= ~(0x03 << 19);         // b[20:19]:clear pull control of pin 4 (3*(Padx) + 1)
+    *(volatile uint32_t *)(0x4000F000 + 0x08) |= (0x3 << 19);           // 00:floating; 01:weak pull up; 10:strong pull up; 11:pull down  
+    // P06引脚映射到PWM0
+    *(volatile uint32_t *)(0x40003800 + 0x0C) |= (1U << 6);             // 引脚使能多路映射功能
+    *(volatile uint32_t *)(0x40003800 + 0x1C) &= ~(0x3F << 16);         // clear pad6 full mux function select b[21:16]
+    *(volatile uint32_t *)(0x40003800 + 0x1C) |= (PWM0 << 16);          // pad6 select function = PWM0(10)   
 
     /*** 发码定时器 ***/
     ir_timer = csi_timer_initialize(0, ir_timer_callback);
