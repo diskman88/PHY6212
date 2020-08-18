@@ -220,7 +220,7 @@ void rcu_vk_handle(kscan_key_t vk, int16_t state)
         // 实体键处理
         if (vk < VK_KEY_FUNC) {
             // 1.hid keyboad 按键处理
-            if (g_gap_data.state == GAP_STATE_CONNECTED) {
+            if (g_gap_data.state == GAP_STATE_PAIRED) {
                 press_key_data hid_key = vk_to_hid_key(vk);
                 hid_key_board_send(&hid_key);
             } else {
@@ -243,7 +243,7 @@ void rcu_vk_handle(kscan_key_t vk, int16_t state)
     }
     // 按键松开:
     else {
-        if (g_gap_data.state == GAP_STATE_CONNECTED) {
+        if (g_gap_data.state == GAP_STATE_PAIRED) {
             press_key_data hid_key = {0};
             hid_key_board_send(&hid_key);
         } else {
