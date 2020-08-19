@@ -11,20 +11,6 @@
 /*******************************************************************************
  * 广播
  ******************************************************************************/
-typedef enum
-{
-    ADV_TYPE_IDLE = 0,     
-    ADV_TYPE_RECONNECT_FAST,
-    ADV_TYPE_RECONNECT_NORMAL,
-    ADV_TYPE_PAIRING,
-    ADV_TYPE_DIRECT_FAST,            // 定向广播，最小间隔时间
-    ADV_TYPE_INDIRECT_RECONNECT,     
-    ADV_TYPE_INDIRECT_PAIRING,
-    ADV_TYPE_INDIRECT_PROMPT,
-    ADV_TYPE_INDIRECT_POWER,
-} adv_type_t;
-
-#define ADV_RECONNECT_FAST_TIMEOUT       1000    // 1s
 #define ADV_RECONNECT_NORMAL_TIMEOUT    30000    // 1s
 #define ADV_PAIRING_TIMEOUT             30000  /* 12s */
 
@@ -46,7 +32,7 @@ typedef enum {
 typedef struct 
 {
     gap_state_t state;
-    adv_type_t ad_type;
+    adv_type_en ad_type;
     int16_t conn_handle;        // 链接id
     dev_addr_t paired_addr;     // 当前配对地址
     int mtu_size;
