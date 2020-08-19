@@ -1,6 +1,7 @@
 from intelhex import IntelHex
 import serial
 import time
+import struct
 
 """
 Each line of Intel HEX file consists of six parts:
@@ -157,7 +158,60 @@ class PhyDownloader:
             raise Exception('checksum failed')
         print('send bin sucesssed\n')
         self.write_index = self.write_index + 1
- 
+    
+    def write_mac(self, mac = b'\xA5\x00\x00\x00\00\00'):
+        if (len(mac) != 6 or type(mac) != bytes):
+            raise Exception("invalid mac address")
+        # mac_l32, = struct.unpack('>I', mac[-4:])
+        # mac_h32, = struct.unpack('>I', b'\x00\x00' + mac[:2])
+        # 1. 启动特殊寄存器读写
+        cmd = "ufifo3"
+        self.serial.write(cmd.encode())
+        print('>: ' + cmd)
+        # read response 
+        ret = self.serial.read_until(b'#OK>>:')
+        print('<: ' + ret.decode())  
+        # 2. 写入MAC 0-3字节
+        mac_0_3 = "{0:02x}{1:02x}{2:02x}{3:02x}".format(mac[-1],mac[-2],mac[-3],mac[-4])
+        cmd = "wrrsd4000 " + mac_0_3
+        self.serial.write(cmd.encode())
+        print('>: ' + cmd)
+        # read response 
+        ret = self.serial.read_until(b'#OK>>:')
+        print('<: ' + ret.decode())          
+        # 校验
+        cmd = "rdreg11004000"
+        self.serial.write(cmd.encode())
+        print('>: ' + cmd)
+        # 寄存器读取返回值
+        ret = self.serial.read_until(b'#OK>>:')
+        print('<: ' + ret.decode())
+        if ret.decode()[0] != '=':
+            raise Exception("read mac failed")
+        if ret.decode().find(mac_0_3) == -1:
+            raise Exception("write mac failed")     # 读写不匹配
+        # 3. 写入MAC 4-5字节
+        mac_4_5 = "{0:02x}{1:02x}".format(mac[-5],mac[-6])
+        cmd = "wrrsd4004 " + mac_4_5
+        self.serial.write(cmd.encode())
+        print('>: ' + cmd)
+        # read response 
+        ret = self.serial.read_until(b'#OK>>:')
+        print('<: ' + ret.decode())          
+        # 校验
+        cmd = "rdreg11004004"
+        self.serial.write(cmd.encode())
+        print('>: ' + cmd)
+        # 寄存器读取返回值
+        ret = self.serial.read_until(b'#OK>>:')
+        print('<: ' + ret.decode())
+        if ret.decode()[0] != '=':
+            raise Exception("read mac failed")
+        if ret.decode().find(mac_4_5) == -1:
+            raise Exception("write mac failed")     # 读写不匹配
+
+        print('write mac successed, mac = ' + mac_4_5 + mac_0_3)           
+
 hexFile = "generated/total_image.hex"
 
 phy = PhyDownloader('/dev/ttyUSB0', hexFile)
@@ -175,6 +229,8 @@ for seg in segments:
     start = seg[0]
     end = seg[1]
     phy.write_bin(start, end)
+
+phy.write_mac(b'\x3B\x7A\xCB\x15\x00\x02')
 
 phy.reset(boot=False)
 phy.serial.close()
