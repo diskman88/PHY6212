@@ -1,0 +1,6 @@
+out/
+generated/
+*.asm
+*.elf
+*.map
+*.s
