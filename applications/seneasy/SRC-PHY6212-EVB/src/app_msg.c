@@ -104,7 +104,7 @@ bool app_is_message_empty()
  * @param event 
  * @return bool 
  */
-bool app_event_set(app_event_t event)
+bool app_event_set(uint32_t event)
 {
     if(aos_event_set(&app_event_flags, event, AOS_EVENT_OR) != 0) {
         // LOGE("MSG", "event error %d", err);
@@ -122,10 +122,9 @@ bool app_event_set(app_event_t event)
  * @param timeout 
  * @return bool 
  */
-bool app_event_get(app_event_t require_flags, app_event_t *actl_flags, uint32_t timeout)
+bool app_event_get(uint32_t require_flags, uint32_t *actl_flags, uint32_t timeout)
 {
     if(aos_event_get(&app_event_flags, require_flags, AOS_EVENT_OR_CLEAR, actl_flags, timeout) != 0) {
-        //
         return false;
     } else {
         return true;

@@ -17,13 +17,11 @@
  * @brief 系统事件定义
  * 
  */
-typedef enum {
-    APP_EVENT_MSG       = 0x00000001,       // 输入输出事件，用IO_MSG传递数据
-    APP_EVENT_PM        = 0x00000004,       // 睡眠事件
-    APP_EVENT_VOICE     = 0x00000008,       // 语音事件
-    APP_EVENT_ERR       = 0x80000000
-}app_event_t;
-
+#define     APP_EVENT_MSG       0x00000001       // 输入输出事件，用IO_MSG传递数据
+#define     APP_EVENT_PM        0x00000004       // 睡眠事件
+#define     APP_EVENT_VOICE     0x00000008       // 语音事件
+#define     APP_EVENT_OTA       0x00000010       // OTA事件
+#define     APP_EVENT_MASK      0x0000FFFF
 
 /**
  * @brief 系统消息类型
@@ -125,7 +123,7 @@ bool app_is_message_empty();
  * @param event 
  * @return bool 
  */
-bool app_event_set(app_event_t event);
+bool app_event_set(uint32_t event);
 
 /**
  * @brief 等待事件
@@ -135,7 +133,7 @@ bool app_event_set(app_event_t event);
  * @param timeout 
  * @return bool 
  */
-bool app_event_get(app_event_t require_flags, app_event_t *actl_flags, uint32_t timeout);
+bool app_event_get(uint32_t require_flags, uint32_t *actl_flags, uint32_t timeout);
 
 #endif
 
