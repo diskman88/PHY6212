@@ -2,6 +2,10 @@
 #include "gap.h"
 #include <log.h>
 
+
+
+#include "app_msg.h"
+
 #define TAG "GAP"
 
 ble_gap_state_t g_gap_data;
@@ -13,7 +17,6 @@ aos_timer_t adv_timer = {0};
 // static uint8_t appearance_Keyboard[] = {0xc1, 0x03};    // @key:961 @value:Keyboard @description:HID subtype
 // static uint8_t appearance_mouse[] = {0xc2, 0x03};       // @key:962 @value:Mouse @description:HID subtype
 // static uint8_t adv_uuids[] = {0x0f, 0x18};
-
 static ad_data_t app_scan_rsp_data[1] = {
     [0] = {
         .type = AD_DATA_TYPE_GAP_APPEARANCE,
@@ -317,6 +320,12 @@ static void gap_event_mtu_exchange(evt_data_gatt_mtu_exchange_t *event_data)
     }
 }
 
+static void ota_event_callback(ota_state_en state)
+{
+    g_gap_data.ota_state = state;
+    app_event_set(APP_EVENT_OTA);
+}
+
 static int gap_event_callback(ble_event_en event, void *event_data)
 {
     LOGD(TAG, "GAP event %x\n", event);
@@ -379,30 +388,26 @@ bool rcu_ble_init()
         .dev_addr = &addr,
         .conn_num_max = 1,
     };
-
+    // 协议栈初始化和配置
     ret = ble_stack_init(&init);
-
     ret = ble_stack_setting_load();
-
     ret = ble_stack_event_register(&ble_cb);
-
     ret = ble_stack_iocapability_set(IO_CAP_IN_NONE | IO_CAP_OUT_NONE);
-
     if (ret != 0) {
         LOGE(TAG, "ble stack init failed");
     }
-
+    // 注册服务
     hid_service_init();
     dis_service_init();
     battary_service_init();
     g_gap_data.p_atvv = atvv_service_init();
+    ble_ota_init(ota_event_callback);
 
-    // 启动广播
+    // 加载配对信息并启动广播
     ret = aos_timer_new_ext(&adv_timer, adv_timer_callback, NULL, 3000, 0, 0);
     if (ret != 0 ) {
         LOGE("GAP", "advertising timer create failed");
     }
-    
     if (load_bond_info()) {
         LOGI("GAP", "load bond info from flash");
     }

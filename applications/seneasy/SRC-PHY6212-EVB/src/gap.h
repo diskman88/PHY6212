@@ -7,6 +7,7 @@
 #include "services/battary_service.h"
 #include "services/dis_service.h"
 #include "services/atvv_service.h"
+#include "yoc/ota_server.h"
 
 /*******************************************************************************
  * 广播
@@ -36,7 +37,7 @@ typedef struct
     int16_t conn_handle;        // 链接id
     dev_addr_t paired_addr;     // 当前配对地址
     int mtu_size;
-
+    ota_state_en ota_state;
     // bas_handle_t *bas;
     // dis_handle_t *dis;
     // hids_handle_t *hids;
