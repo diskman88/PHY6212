@@ -101,16 +101,13 @@ void on_msg_keyscan(kscan_key_t vk, int16_t state)
             rcu_send_ir_key_down(vk);
         }
     }
-    // 3.发码键松开处理
-    else if (vk < VK_KEY_FUNC && state == MSG_KEYSCAN_KEY_RELEASE_ALL) {
+    // 3.其他状态
+    else {
+        LOGE(TAG, "vk=%d, state=%d", vk, state);
         if (mode == 1) {
             rcu_send_hid_key_release();
         }
         rcu_send_ir_key_release();      // 按键释放时停止ir发送，防止状态切换后ir无法停止
-    }
-    // 4.其他状态
-    else {
-        LOGE(TAG, "unknown state vk=%d, state=%d", vk, state);
     }
 }
 

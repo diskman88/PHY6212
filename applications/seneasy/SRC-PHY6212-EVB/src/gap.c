@@ -48,7 +48,20 @@ static ad_data_t app_adv_data[4] = {
     }
 };
 
-
+static adv_param_t param = {
+    .type = ADV_IND,
+    .ad = app_adv_data,
+    // .sd = app_scan_rsp_data,
+    .sd = NULL,
+    .ad_num = BLE_ARRAY_NUM(app_adv_data),
+    // .sd_num = BLE_ARRAY_NUM(app_scan_rsp_data),
+    .sd_num = 0,
+    .filter_policy = ADV_FILTER_POLICY_ANY_REQ,
+    .channel_map = ADV_DEFAULT_CHAN_MAP,
+    .direct_peer_addr = {0},
+    .interval_min = ADV_FAST_INT_MIN_2,
+    .interval_max = ADV_FAST_INT_MAX_2,
+};
 
 bool stop_adv()
 {
@@ -78,18 +91,6 @@ static void adv_timer_callback(void *arg1, void *arg2)
 static bool start_adv(adv_type_en type)
 {
     int adv_timeout = 0;
-    adv_param_t param = {
-        .type = ADV_IND,
-        .ad = app_adv_data,
-        .sd = app_scan_rsp_data,
-        .ad_num = BLE_ARRAY_NUM(app_adv_data),
-        .sd_num = BLE_ARRAY_NUM(app_scan_rsp_data),
-        .filter_policy = ADV_FILTER_POLICY_ANY_REQ,
-        .channel_map = ADV_DEFAULT_CHAN_MAP,
-        .direct_peer_addr = {0},
-        .interval_min = ADV_FAST_INT_MIN_2,
-        .interval_max = ADV_FAST_INT_MAX_2,
-    };
     /**
      * ADV_IND =                 0x00, 
      * 非定向广播，可被连接，可被扫描；
@@ -120,7 +121,7 @@ static bool start_adv(adv_type_en type)
         case ADV_IND:
             param.type = ADV_IND;
             param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
-            param.interval_min = ADV_FAST_INT_MIN_1;    // 广播间隔在[48ms,96ms]之间
+            param.interval_min = ADV_FAST_INT_MIN_1;    // 广播间隔在[160ms,240ms]之间
             param.interval_max = ADV_FAST_INT_MAX_1;
             adv_timeout = ADV_PAIRING_TIMEOUT;
             break;
@@ -257,8 +258,10 @@ static void gap_event_smp_pairing_complete(evt_data_smp_pairing_complete_t *even
                                                     event_data->peer_addr.val[5]
                                                     );
         }
+    } else {
+        LOGI(TAG, "pairing %s!!!, error=%d", event_data->err ? "FAIL" : "SUCCESS", event_data->err);
+        ble_stack_dev_unpair(NULL);
     }
-    LOGI(TAG, "pairing %s!!!", event_data->err ? "FAIL" : "SUCCESS");
 }
 
 static void gap_event_smp_cancel(void *event_data)
