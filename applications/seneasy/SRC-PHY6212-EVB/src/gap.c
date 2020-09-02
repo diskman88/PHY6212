@@ -13,14 +13,16 @@ ble_gap_state_t g_gap_data;
 aos_timer_t adv_timer = {0};
 
 // https://www.bluetooth.com/xml-viewer/?src=https://www.bluetooth.com/wp-content/uploads/Sitecore-Media-Library/Gatt/Xml/Characteristics/org.bluetooth.characteristic.gap.appearance.xml
-// static uint8_t appearance_hid[] = {0xc0, 0x03};         // @key:960 @value:Human Interface Device (HID) @description:HID Generic
-// static uint8_t appearance_Keyboard[] = {0xc1, 0x03};    // @key:961 @value:Keyboard @description:HID subtype
-// static uint8_t appearance_mouse[] = {0xc2, 0x03};       // @key:962 @value:Mouse @description:HID subtype
-// static uint8_t adv_uuids[] = {0x0f, 0x18};
+static uint8_t adv_appearance_hid[] = {0xc0, 0x03};         // @key:960 @value:Human Interface Device (HID) @description:HID Generic
+// static const uint8_t appearance_Keyboard[] = {0xc1, 0x03};    // @key:961 @value:Keyboard @description:HID subtype
+// static const uint8_t appearance_mouse[] = {0xc2, 0x03};       // @key:962 @value:Mouse @description:HID subtype
+static uint8_t adv_uuids_hids[] = {0x0f, 0x18};
+static uint8_t adv_flags = AD_FLAG_LIMITED | AD_FLAG_NO_BREDR;
+
 static ad_data_t app_scan_rsp_data[1] = {
     [0] = {
         .type = AD_DATA_TYPE_GAP_APPEARANCE,
-        .data = (uint8_t[]){0xc1, 0x03},            // keyboard:961
+        .data = adv_appearance_hid,            // keyboard:961
         .len = 2
     }
 };
@@ -28,12 +30,12 @@ static ad_data_t app_scan_rsp_data[1] = {
 static ad_data_t app_adv_data[4] = {
     [0] = {
         .type = AD_DATA_TYPE_FLAGS,
-        .data = (uint8_t[]){AD_FLAG_GENERAL | AD_FLAG_NO_BREDR},
+        .data = &adv_flags,
         .len = 1
     },
     [1] = {
         .type = AD_DATA_TYPE_UUID16_ALL,
-        .data = (uint8_t[]){0x12, 0x18},            // uuid_hids
+        .data = adv_uuids_hids,            // uuid_hids
         .len = 2,
     },
     [2] = {
@@ -43,24 +45,9 @@ static ad_data_t app_adv_data[4] = {
     },
     [3] = {
         .type = AD_DATA_TYPE_GAP_APPEARANCE,
-        .data = (uint8_t[]){0xc1, 0x03},            // keyboard:961
+        .data = adv_appearance_hid,            // keyboard:961
         .len = 2
     }
-};
-
-static adv_param_t param = {
-    .type = ADV_IND,
-    .ad = app_adv_data,
-    // .sd = app_scan_rsp_data,
-    .sd = NULL,
-    .ad_num = BLE_ARRAY_NUM(app_adv_data),
-    // .sd_num = BLE_ARRAY_NUM(app_scan_rsp_data),
-    .sd_num = 0,
-    .filter_policy = ADV_FILTER_POLICY_ANY_REQ,
-    .channel_map = ADV_DEFAULT_CHAN_MAP,
-    .direct_peer_addr = {0},
-    .interval_min = ADV_FAST_INT_MIN_2,
-    .interval_max = ADV_FAST_INT_MAX_2,
 };
 
 bool stop_adv()
@@ -90,7 +77,6 @@ static void adv_timer_callback(void *arg1, void *arg2)
 
 static bool start_adv(adv_type_en type)
 {
-    int adv_timeout = 0;
     /**
      * ADV_IND =                 0x00, 
      * 非定向广播，可被连接，可被扫描；
@@ -115,28 +101,52 @@ static bool start_adv(adv_type_en type)
      *  广播包间隔 <= 3.75ms， 广播事件间隔[20, 10.24s]
      */
     // 根据不同的广播类型配置广播参数
+    // type = ADV_IND;
+    int adv_timeout = 0;
+    static adv_param_t param;
     switch (type)
     {
         // 配对广播
         case ADV_IND:
             param.type = ADV_IND;
+            param.ad = app_adv_data;
+            param.sd = app_scan_rsp_data;
+            // param.ad_num = BLE_ARRAY_NUM(app_adv_data);
+            param.ad_num = 4;
+            // param.sd_num = BLE_ARRAY_NUM(app_scan_rsp_data);
+            param.sd_num = 1;
             param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
-            param.interval_min = ADV_FAST_INT_MIN_1;    // 广播间隔在[160ms,240ms]之间
+            param.channel_map = ADV_DEFAULT_CHAN_MAP;
+            memset(&param.direct_peer_addr, 0, sizeof(dev_addr_t));
+            param.interval_min = ADV_FAST_INT_MIN_1;
             param.interval_max = ADV_FAST_INT_MAX_1;
+            // param.type = ADV_IND;
+            // // memset(&param.direct_peer_addr, 0, sizeof(dev_addr_t));
+            // param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
+            // param.interval_min = ADV_FAST_INT_MIN_1;    // 广播间隔在[160ms,240ms]之间
+            // param.interval_max = ADV_FAST_INT_MAX_1;
             adv_timeout = ADV_PAIRING_TIMEOUT;
             break;
         // 回连广播
         case ADV_DIRECT_IND:
-            param.type = ADV_DIRECT_IND;
+            param.type = ADV_IND;
+            param.ad = app_adv_data;
+            param.sd = app_scan_rsp_data;
+            param.ad_num = BLE_ARRAY_NUM(app_adv_data);
+            param.sd_num = BLE_ARRAY_NUM(app_scan_rsp_data);
+            param.filter_policy = ADV_FILTER_POLICY_ALL_REQ;
+            param.channel_map = ADV_DEFAULT_CHAN_MAP;
             param.direct_peer_addr = bond_info.remote_addr;
-            param.filter_policy = ADV_FILTER_POLICY_CONN_REQ; 
+            param.interval_min = ADV_FAST_INT_MIN_1;
+            param.interval_max = ADV_FAST_INT_MAX_1;
             adv_timeout = 0;
             break;
         default:
             break;
     }
     // 启动广播
-    if (ble_stack_adv_start(&param) == 0) {   
+    int err = ble_stack_adv_start(&param);
+    if (err == 0) {
         // 更新状态
         g_gap_data.state = GAP_STATE_ADVERTISING;
         g_gap_data.ad_type = type;
@@ -155,7 +165,7 @@ static bool start_adv(adv_type_en type)
     } 
     // 广播启动失败
     else {
-        LOGE(TAG, "advertising start failed!");
+        LOGE(TAG, "advertising start failed: %d!", err);
         return false;
     } 
 }
@@ -163,38 +173,59 @@ static bool start_adv(adv_type_en type)
 
 #define KEY_BOND_INFO   "BOND"
 bond_info_t bond_info = {0};
-bool save_bond_info()
+bool save_bond_info(dev_addr_t *p_remote_addr)
 {
-    if (aos_kv_set(KEY_BOND_INFO, (void *)&bond_info, sizeof(bond_info_t), 1) != 0) {
-        // TO-DO: 保存失败
+    int ret;
+    bond_info.is_bonded = true; 
+    memcpy(&bond_info.remote_addr, p_remote_addr, sizeof(dev_addr_t));
+    ret = aos_kv_set(KEY_BOND_INFO, (void *)&bond_info, sizeof(bond_info_t), 1);
+    if (ret != 0) {
+        LOGE("bond", "can`t write bond info, err=%d",ret);
+        bond_info.is_bonded = false;
         return false;
     }
+    ret = ble_stack_white_list_add(p_remote_addr);
+    if (ret != 0) {
+        LOGE("bond", "add whitelist failed, err=%d", ret);
+        bond_info.is_bonded = false;
+        return false;
+    }
+    bond_info.is_bonded = true;
     return true;
 }
 
 bool load_bond_info()
 {
-    int len;
-    if (aos_kv_get(KEY_BOND_INFO, (void *)&bond_info, &len) != 0) {
+    int len,ret;
+    bond_info.is_bonded = false;
+    ret = aos_kv_get(KEY_BOND_INFO, (void *)&bond_info, &len);
+    if (ret != 0 || len == sizeof(bond_info_t)) {
+        LOGE("bond", "kv load bond info failed, err=%d", ret);
         return false;
     }
-    if (len == sizeof(bond_info_t)) {
-        return true;
-    } else {
-        return false;
-    }
+    return true;
 }
 
 bool remove_bond_info()
 {
-    int err;
+    int ret;
+    ret = ble_stack_dev_unpair(NULL);
+    if (ret != 0) {
+        LOGE("bond", "ble stack dev unpair failed, err=%d", ret);
+        return false;
+    }
+
+    ret = ble_stack_white_list_remove(&bond_info.remote_addr);
+    if (ret != 0) {
+        LOGE("bond", "ble stack remove whitelist failed, err=%d", ret);
+        return false;
+    }
+
     bond_info.is_bonded = false;
-    if (aos_kv_set(KEY_BOND_INFO, (void *)&bond_info, sizeof(bond_info_t), 1) == 0) {
-        err = ble_stack_dev_unpair(&bond_info.remote_addr);
-        err = ble_stack_white_list_remove(&bond_info.remote_addr);
-        if (err != 0) {
-            LOGE("GAP", "remove paired info failed");
-        }
+    ret = aos_kv_set(KEY_BOND_INFO, (void *)&bond_info, sizeof(bond_info_t), 1);
+    if (ret != 0) {
+        LOGE("bond", "kv can`t remove bond info");
+        return false;
     }
     return true;
 }
@@ -217,11 +248,7 @@ void rcu_ble_pairing()
         }
     }
     // 2.如果已经有绑定信息，则清除绑定信息
-    if (bond_info.is_bonded) {
-        if (remove_bond_info() == false) {
-            LOGE("GAP", "remove bond info failed");
-        }
-    }
+    remove_bond_info();
     // 3.发起非直连广播，重启配对过程
     start_adv(ADV_IND);
 }
@@ -230,6 +257,7 @@ static void gap_event_adv_timeout(void *event_data)
 {
     if (g_gap_data.ad_type == ADV_DIRECT_IND) {
         LOGI(TAG, "advertising timerout");  // 什么情况下会发生?
+        g_gap_data.state = GAP_STATE_IDLE;
         start_adv(ADV_IND);
     }
 }
@@ -245,10 +273,7 @@ static void gap_event_smp_pairing_complete(evt_data_smp_pairing_complete_t *even
         g_gap_data.state = GAP_STATE_PAIRED;
         g_gap_data.paired_addr = event_data->peer_addr;
         if (event_data->bonded ) {
-            ble_stack_white_list_add(&event_data->peer_addr);
-            bond_info.is_bonded = true;
-            bond_info.remote_addr = event_data->peer_addr;
-            save_bond_info();
+            save_bond_info(&(event_data->peer_addr));
             LOGI(TAG, "bond with remote device:%02x-%02x-%02x-%02x-%02x-%02x",   
                                                     event_data->peer_addr.val[0],
                                                     event_data->peer_addr.val[1],
@@ -260,7 +285,7 @@ static void gap_event_smp_pairing_complete(evt_data_smp_pairing_complete_t *even
         }
     } else {
         LOGI(TAG, "pairing %s!!!, error=%d", event_data->err ? "FAIL" : "SUCCESS", event_data->err);
-        ble_stack_dev_unpair(NULL);
+        remove_bond_info();
     }
 }
 
@@ -331,7 +356,7 @@ static void ota_event_callback(ota_state_en state)
 
 static int gap_event_callback(ble_event_en event, void *event_data)
 {
-    LOGD(TAG, "GAP event %x\n", event);
+    LOGI(TAG, "GAP event %x\n", event);
 
     switch (event) {
         case EVENT_GAP_CONN_CHANGE:
@@ -412,12 +437,27 @@ bool rcu_ble_init()
         LOGE("GAP", "advertising timer create failed");
     }
     if (load_bond_info()) {
-        LOGI("GAP", "load bond info from flash");
+        if (bond_info.is_bonded) {
+            LOGI("GAP", "device had bonded with %02x-%02x-%02x-%02x-%02x-%02x",   
+                                                    bond_info.remote_addr.val[0],
+                                                    bond_info.remote_addr.val[1],
+                                                    bond_info.remote_addr.val[2],
+                                                    bond_info.remote_addr.val[3],
+                                                    bond_info.remote_addr.val[4],
+                                                    bond_info.remote_addr.val[5]);
+
+        }
     }
+
+    // 启动广播:
+    //  1.如果有配对过,发直连广播
+    //  2.如果没有配对,发普通非直连广播
     if (bond_info.is_bonded == true) {
         start_adv(ADV_DIRECT_IND);
     } else {
         start_adv(ADV_IND);
     }
+
+    // start_adv(ADV_IND);
     return true;
 }
