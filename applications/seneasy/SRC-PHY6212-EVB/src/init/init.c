@@ -54,7 +54,7 @@ void board_yoc_init(void)
 #endif
 
     // disable low power mode when use console
-    // disableSleepInPM(1);
+    disableSleepInPM(1);
     // 串口
     phy_gpio_pull_set(P9, WEAK_PULL_UP);
     phy_gpio_pull_set(P10, WEAK_PULL_UP);
