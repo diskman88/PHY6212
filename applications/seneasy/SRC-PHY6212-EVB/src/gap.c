@@ -357,33 +357,32 @@ static void gap_event_conn_security_change(evt_data_gap_security_change_t *event
 static void gap_event_conn_change(evt_data_gap_conn_change_t *event_data)
 {  
     LOGI("GAP", "%s, error=%d", (event_data->connected == CONNECTED) ? "connect":"disconect", event_data->err);
-    if (event_data->err == 0) {
-        if (event_data->connected == CONNECTED) {
-            // 设置连接加密
-            // ble_stack_security(event_data->conn_handle, SECURITY_LOW);
-            // ble_stack_security(e->conn_handle, SECURITY_MEDIUM);
-            g_gap_data.conn_handle = event_data->conn_handle;
-            g_gap_data.state = GAP_STATE_CONNECTED;
-            aos_timer_stop(&adv_timer);
-            // led_set_status(BLINK_SLOW);
-        } else {
-        }
-    } else {
+    if (event_data->connected == CONNECTED) {
+        // 设置连接加密
+        // ble_stack_security(event_data->conn_handle, SECURITY_LOW);
+        // ble_stack_security(e->conn_handle, SECURITY_MEDIUM);
+        g_gap_data.conn_handle = event_data->conn_handle;
+        g_gap_data.state = GAP_STATE_CONNECTED;
+        aos_timer_stop(&adv_timer);
+        // led_set_status(BLINK_SLOW);
+    } 
+
+    if (event_data->connected == DISCONNECTED) {
         // 设置全局gap状态
         g_gap_data.conn_handle = -1;
         g_gap_data.state = GAP_STATE_DISCONNECTING;
-        // 如果主机主动断开连接,则不启动广播
-        if (event_data->err == 16) {
 
-        } 
-        // 否则立刻启动广播
-        else {
-            // 有绑定信息,启动直连广播
-            if (bond_info.is_bonded) {
-                start_adv(ADV_DIRECT_IND);
-            } else {
-                start_adv(ADV_IND);
-            }
+    }
+
+    // 如果主机主动断开连接,则不启动广播,否则启动广播
+    if (event_data->err == 19) {
+        LOGI("GAP", "BT_HCI_ERR_REMOTE_USER_TERM_CONN");
+    } else {
+        // 有绑定信息,启动直连广播
+        if (bond_info.is_bonded) {
+            start_adv(ADV_DIRECT_IND);
+        } else {
+            start_adv(ADV_IND);
         }
     }
 }
