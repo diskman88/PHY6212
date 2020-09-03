@@ -85,6 +85,13 @@ void on_msg_keyscan(kscan_key_t vk, int16_t state)
         mode = 1;
     }
 
+    // 0.特殊按键处理:power
+    if (vk == VK_KEY_01) {
+        if (state == MSG_KEYSCAN_KEY_PRESSED) {
+            rcu_ble_power_key();
+        }
+    }
+
     // 1.功能键按下处理
     if (vk >= VK_KEY_FUNC && state == MSG_KEYSCAN_KEY_PRESSED) {
         led_on();

@@ -2,8 +2,6 @@
 #include "gap.h"
 #include <log.h>
 
-
-
 #include "app_msg.h"
 
 #define TAG "GAP"
@@ -50,6 +48,34 @@ static ad_data_t app_adv_data[4] = {
     }
 };
 
+static ad_data_t app_adv_data_power[5] = {
+    [0] = {
+        .type = AD_DATA_TYPE_FLAGS,
+        .data = &adv_flags,
+        .len = 1
+    },
+    [1] = {
+        .type = AD_DATA_TYPE_SVC_DATA16,
+        .data = (uint8 []) {0x01, 0xFD, 0x00, 0x01},
+        .len = 5
+    },
+    [2] = {
+        .type = AD_DATA_TYPE_UUID16_ALL,
+        .data = adv_uuids_hids,            // uuid_hids
+        .len = 2,
+    },
+    [3] = {
+        .type = AD_DATA_TYPE_NAME_COMPLETE,
+        .data = (uint8_t *)DEVICE_NAME,
+        .len = sizeof(DEVICE_NAME),
+    },
+    [4] = {
+        .type = AD_DATA_TYPE_GAP_APPEARANCE,
+        .data = adv_appearance_hid,            // keyboard:961
+        .len = 2
+    }
+};
+
 bool stop_adv()
 {
     if (ble_stack_adv_stop() != 0) {
@@ -75,7 +101,7 @@ static void adv_timer_callback(void *arg1, void *arg2)
     }
 }
 
-static bool start_adv(adv_type_en type)
+static bool start_adv(int type)
 {
     /**
      * ADV_IND =                 0x00, 
@@ -108,12 +134,17 @@ static bool start_adv(adv_type_en type)
     {
         // 配对广播
         case ADV_IND:
+        case ADV_TYPE_CUSTOM:
             param.type = ADV_IND;
-            param.ad = app_adv_data;
+            if (type == ADV_IND) {
+                param.ad = app_adv_data;
+                param.ad_num = 4;
+            }
+            if (type == ADV_TYPE_CUSTOM) {
+                param.ad = app_adv_data_power;
+                param.ad_num = 5;
+            }
             param.sd = app_scan_rsp_data;
-            // param.ad_num = BLE_ARRAY_NUM(app_adv_data);
-            param.ad_num = 4;
-            // param.sd_num = BLE_ARRAY_NUM(app_scan_rsp_data);
             param.sd_num = 1;
             param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
             param.channel_map = ADV_DEFAULT_CHAN_MAP;
@@ -169,7 +200,6 @@ static bool start_adv(adv_type_en type)
         return false;
     } 
 }
-
 
 #define KEY_BOND_INFO   "BOND"
 bond_info_t bond_info = {0};
@@ -253,6 +283,20 @@ void rcu_ble_pairing()
     start_adv(ADV_IND);
 }
 
+void rcu_ble_power_key()
+{
+    start_adv(ADV_TYPE_CUSTOM);
+}
+
+/*********************************************************************************
+ * GAP 事件处理函数
+ ********************************************************************************/
+#pragma region
+/**
+ * @brief 直连广播超时事件(启动后1.2s没有连接)
+ * 
+ * @param event_data 
+ */
 static void gap_event_adv_timeout(void *event_data)
 {
     if (g_gap_data.ad_type == ADV_DIRECT_IND) {
@@ -262,6 +306,11 @@ static void gap_event_adv_timeout(void *event_data)
     }
 }
 
+/**
+ * @brief 
+ * 
+ * @param event_data 
+ */
 static void gap_event_smp_pairing_passkey_display(evt_data_smp_passkey_display_t *event_data)
 {
     LOGI(TAG, "passkey is %s", event_data->passkey);
@@ -306,26 +355,35 @@ static void gap_event_conn_security_change(evt_data_gap_security_change_t *event
 }
 
 static void gap_event_conn_change(evt_data_gap_conn_change_t *event_data)
-{
-    if (event_data->connected == CONNECTED && event_data->err == 0) {
-        // 设置连接加密
-        // ble_stack_security(event_data->conn_handle, SECURITY_LOW);
-        // ble_stack_security(e->conn_handle, SECURITY_MEDIUM);
-        g_gap_data.conn_handle = event_data->conn_handle;
-        g_gap_data.state = GAP_STATE_CONNECTED;
-        aos_timer_stop(&adv_timer);
-        // led_set_status(BLINK_SLOW);
-        LOGI(TAG, "Connected");
+{  
+    LOGI("GAP", "%s, error=%d", (event_data->connected == CONNECTED) ? "connect":"disconect", event_data->err);
+    if (event_data->err == 0) {
+        if (event_data->connected == CONNECTED) {
+            // 设置连接加密
+            // ble_stack_security(event_data->conn_handle, SECURITY_LOW);
+            // ble_stack_security(e->conn_handle, SECURITY_MEDIUM);
+            g_gap_data.conn_handle = event_data->conn_handle;
+            g_gap_data.state = GAP_STATE_CONNECTED;
+            aos_timer_stop(&adv_timer);
+            // led_set_status(BLINK_SLOW);
+        } else {
+        }
     } else {
         // 设置全局gap状态
         g_gap_data.conn_handle = -1;
         g_gap_data.state = GAP_STATE_DISCONNECTING;
-        LOGI(TAG, "Disconnected err %d", event_data->err);
-        // 启动广播发送
-        if (bond_info.is_bonded) {
-            start_adv(ADV_DIRECT_IND);
-        } else {
-            start_adv(ADV_IND);
+        // 如果主机主动断开连接,则不启动广播
+        if (event_data->err == 16) {
+
+        } 
+        // 否则立刻启动广播
+        else {
+            // 有绑定信息,启动直连广播
+            if (bond_info.is_bonded) {
+                start_adv(ADV_DIRECT_IND);
+            } else {
+                start_adv(ADV_IND);
+            }
         }
     }
 }
@@ -405,6 +463,14 @@ static ble_event_cb_t ble_cb = {
     .callback = gap_event_callback,
 };
 
+#pragma endregion
+
+/**
+ * @brief 蓝牙协议栈初始化
+ * 
+ * @return true 
+ * @return false 
+ */
 bool rcu_ble_init()
 {
     int ret = 0;

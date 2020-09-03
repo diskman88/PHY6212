@@ -14,6 +14,7 @@
  ******************************************************************************/
 #define ADV_RECONNECT_NORMAL_TIMEOUT    30000    // 1s
 #define ADV_PAIRING_TIMEOUT             30000  /* 12s */
+#define ADV_TYPE_CUSTOM     0xF0
 
 
 #define DEVICE_NAME "remote control"
@@ -58,4 +59,5 @@ bool rcu_ble_init();
 
 void rcu_ble_pairing();
 
+void rcu_ble_power_key();
 #endif
