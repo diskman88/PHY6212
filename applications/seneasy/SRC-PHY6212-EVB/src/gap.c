@@ -267,6 +267,7 @@ void rcu_ble_pairing()
         aos_timer_stop(&adv_timer);
         aos_timer_change_without_repeat(&adv_timer, ADV_PAIRING_TIMEOUT);
         aos_timer_start(&adv_timer);
+        LOGI("GAP", "restart adversting, will stop after %dmS", ADV_PAIRING_TIMEOUT);
         return ;
     }
     // 其他状态：
@@ -278,7 +279,9 @@ void rcu_ble_pairing()
         }
     }
     // 2.如果已经有绑定信息，则清除绑定信息
-    remove_bond_info();
+    if (bond_info.is_bonded) {
+        remove_bond_info();
+    }
     // 3.发起非直连广播，重启配对过程
     start_adv(ADV_IND);
 }
@@ -371,20 +374,20 @@ static void gap_event_conn_change(evt_data_gap_conn_change_t *event_data)
         // 设置全局gap状态
         g_gap_data.conn_handle = -1;
         g_gap_data.state = GAP_STATE_DISCONNECTING;
-
-    }
-
-    // 如果主机主动断开连接,则不启动广播,否则启动广播
-    if (event_data->err == 19) {
-        LOGI("GAP", "BT_HCI_ERR_REMOTE_USER_TERM_CONN");
-    } else {
-        // 有绑定信息,启动直连广播
-        if (bond_info.is_bonded) {
-            start_adv(ADV_DIRECT_IND);
+        // 如果主机主动断开连接,则不启动广播,否则启动广播
+        if (event_data->err == 19) {
+            LOGI("GAP", "BT_HCI_ERR_REMOTE_USER_TERM_CONN");
         } else {
-            start_adv(ADV_IND);
+            // 有绑定信息,启动直连广播
+            if (bond_info.is_bonded) {
+                start_adv(ADV_DIRECT_IND);
+            } else {
+                start_adv(ADV_IND);
+            }
         }
     }
+
+
 }
 
 static void gap_event_conn_param_update(evt_data_gap_conn_param_update_t *event_data)
