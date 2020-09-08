@@ -416,7 +416,7 @@ static void ota_event_callback(ota_state_en state)
 
 static int gap_event_callback(ble_event_en event, void *event_data)
 {
-    LOGI(TAG, "GAP event %x\n", event);
+    // LOGI(TAG, "GAP event %x\n", event);
 
     switch (event) {
         case EVENT_GAP_CONN_CHANGE:
