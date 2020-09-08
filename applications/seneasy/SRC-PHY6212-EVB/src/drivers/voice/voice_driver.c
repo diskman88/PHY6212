@@ -69,8 +69,8 @@ static void voice_pcm_truck_cb(voice_Evt_t *evt)
         // ima_adpcm_global_state.valprev = 3;
         new_frame.state = ima_adpcm_global_state;
         if (voice_fifo_in(&new_frame) == false) {
+            voice_handle_mic_stop();
             LOGE("VOICE", "voice fifo full");
-            phy_voice_stop();
         }
         app_event_set(APP_EVENT_VOICE);
         phy_gpio_write(GPIO_P23, 1);
