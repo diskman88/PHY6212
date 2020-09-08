@@ -63,6 +63,7 @@ static void voice_pcm_truck_cb(voice_Evt_t *evt)
         // memcpy(new_frame.encode_data, test_pcm_data, 128);
         // memcpy(new_frame.encode_data, evt->data, 128);
         new_frame.seq_id = trans_seq_id++;
+        new_frame.reserved = 0x01;
         //test
         // ima_adpcm_global_state.index = 2;
         // ima_adpcm_global_state.valprev = 3;

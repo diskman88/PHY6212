@@ -44,6 +44,7 @@ typedef struct
 {
     // 传输id
     uint16_t seq_id;
+    char reserved;
     // adpcm编码
     adpcm_state_t state;        // adpcm编码状态
     char encode_data[128];       // 音频编码数据

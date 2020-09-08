@@ -8,7 +8,7 @@
 
 typedef struct {
     short	valprev;	/* Previous output value */
-    short	index;		/* Index into stepsize table */
+    char	index;		/* Index into stepsize table */
 }adpcm_state_t;
 
 
