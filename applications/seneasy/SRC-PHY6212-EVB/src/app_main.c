@@ -24,7 +24,9 @@
 #include <devices/devicelist.h>
 #include <stdint.h>
 #include <stdbool.h>
+
 #include "pm.h"
+#include <pwrmgr.h>
 
 // 驱动和service
 #include "drivers/led.h"
@@ -237,5 +239,82 @@ int app_main(int argc, char *argv[])
 
     }
     
+    return 0;
+}
+
+
+/***********************************************************************************
+ * 睡眠处理
+ **********************************************************************************/
+#include "drv_usart.h"
+extern void registers_save(uint32_t *mem, uint32_t *addr, int size);
+static uint32_t usart_regs_saved[5];
+static void usart_prepare_sleep_action(void)
+{
+    uint32_t addr = 0x40004000;
+    uint32_t read_num = 0;
+    // 清空 Receive FIFO
+    while (*(volatile uint32_t *)(addr + 0x14) & 0x1) {
+        *(volatile uint32_t *)addr;
+        if (read_num++ >= 16) {
+            break;
+        }
+    }
+    // 等待串口空闲
+    while (*(volatile uint32_t *)(addr + 0x7c) & 0x1);
+    // !!! PHY6212 串口的发送寄存器,接收寄存器, 中断寄存器,分频寄存器地址复用,需要特殊读写序列..
+    *(volatile uint32_t *)(addr + 0xc) |= 0x80;     // 允许读写波特率分频寄存器
+    registers_save((uint32_t *)usart_regs_saved, (uint32_t *)addr, 2);      // 保存波特率分频寄存器
+    *(volatile uint32_t *)(addr + 0xc) &= ~0x80;        // 禁止读写波特率分频寄存器(地址映射为读写和中断寄存器)
+    // 保存中断使能
+    registers_save(&usart_regs_saved[2], (uint32_t *)addr + 1, 1);
+    registers_save(&usart_regs_saved[3], (uint32_t *)addr + 3, 2);
+}
+
+static void usart_wakeup_action(void)
+{
+    drv_pinmux_config(P9, UART_TX);
+    drv_pinmux_config(P10, UART_RX);
+    uint32_t addr = 0x40004000;
+    while (*(volatile uint32_t *)(addr + 0x7c) & 0x1);
+    *(volatile uint32_t *)(addr + 0xc) |= 0x80;
+    registers_save((uint32_t *)addr, usart_regs_saved, 2);
+    *(volatile uint32_t *)(addr + 0xc) &= ~0x80;
+    registers_save((uint32_t *)addr + 1, &usart_regs_saved[2], 1);
+    registers_save((uint32_t *)addr + 3, &usart_regs_saved[3], 2);
+}
+
+/**
+ * @brief 系统进入低功耗入口
+ * 
+ * @return int 
+ */
+int pm_prepare_sleep_action()
+{
+    hal_ret_sram_enable(RET_SRAM0 | RET_SRAM1 | RET_SRAM2);
+    // LOGI("PM", "prepare to sleep");
+
+    kscan_prepare_sleep_action();
+    csi_usart_prepare_sleep_action(0);
+    // usart_prepare_sleep_action();
+    // csi_pinmux_prepare_sleep_action();
+    return 0;
+}
+
+/**
+ * @brief 系统退出低功耗入口
+ * 
+ * @return int 
+ */
+int pm_after_sleep_action()
+{
+    // csi_pinmux_wakeup_sleep_action();
+    kscan_wakeup_action();
+    drv_pinmux_config(P9, UART_TX);
+    drv_pinmux_config(P10, UART_RX);
+    csi_usart_wakeup_sleep_action(0);
+    // usart_wakeup_action();
+
+    // LOGI("PM", "wakeup");
     return 0;
 }
