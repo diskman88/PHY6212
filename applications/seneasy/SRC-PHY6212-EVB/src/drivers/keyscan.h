@@ -41,4 +41,7 @@ typedef enum {
 
 int create_keyscan_task();
 
+void kscan_wakeup_action();
+
+void kscan_prepare_sleep_action();
 #endif
