@@ -17,7 +17,7 @@
 #define ADV_TYPE_CUSTOM     0xF0
 
 
-#define DEVICE_NAME "remote control"
+#define DEVICE_NAME "remote"
 #define DEVICE_ADDR {0x02,0x00,0x15,0xCB,0x7A,0x3B}
 
 
@@ -29,7 +29,6 @@ typedef enum {
     GAP_STATE_PAIRED,           /* rcu paired success status */
     GAP_STATE_DISCONNECTING,    /* temporary status of disconnecting */
 }gap_state_t;
-
 
 typedef struct 
 {

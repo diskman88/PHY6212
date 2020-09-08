@@ -37,15 +37,15 @@ static ad_data_t app_adv_data[4] = {
         .len = 2,
     },
     [2] = {
-        .type = AD_DATA_TYPE_NAME_COMPLETE,
-        .data = (uint8_t *)DEVICE_NAME,
-        .len = sizeof(DEVICE_NAME),
-    },
-    [3] = {
         .type = AD_DATA_TYPE_GAP_APPEARANCE,
         .data = adv_appearance_hid,            // keyboard:961
         .len = 2
-    }
+    },
+    [3] = {
+        .type = AD_DATA_TYPE_NAME_COMPLETE,
+        .data = (uint8_t *)DEVICE_NAME,
+        .len = strlen(DEVICE_NAME),
+    },
 };
 
 static ad_data_t app_adv_data_power[5] = {
@@ -144,8 +144,8 @@ static bool start_adv(int type)
                 param.ad = app_adv_data_power;
                 param.ad_num = 5;
             }
-            param.sd = app_scan_rsp_data;
-            param.sd_num = 1;
+            param.sd = NULL;
+            param.sd_num = 0;
             param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
             param.channel_map = ADV_DEFAULT_CHAN_MAP;
             memset(&param.direct_peer_addr, 0, sizeof(dev_addr_t));
@@ -173,7 +173,7 @@ static bool start_adv(int type)
             adv_timeout = 0;
             break;
         default:
-            break;
+            return false;
     }
     // 启动广播
     int err = ble_stack_adv_start(&param);
@@ -230,10 +230,18 @@ bool load_bond_info()
     bond_info.is_bonded = false;
     ret = aos_kv_get(KEY_BOND_INFO, (void *)&bond_info, &len);
     if (ret != 0 || len == sizeof(bond_info_t)) {
-        LOGE("bond", "kv load bond info failed, err=%d", ret);
+        LOGI("bond", "no bond info find");
         return false;
-    }
-    return true;
+    } else {
+        LOGI("bond", "has bonded with device::%02x-%02x-%02x-%02x-%02x-%02x", 
+                                            bond_info.remote_addr.val[0],
+                                            bond_info.remote_addr.val[1],
+                                            bond_info.remote_addr.val[2],
+                                            bond_info.remote_addr.val[3],
+                                            bond_info.remote_addr.val[4],
+                                            bond_info.remote_addr.val[5]);
+        return true;
+    }   
 }
 
 bool remove_bond_info()
@@ -374,9 +382,9 @@ static void gap_event_conn_change(evt_data_gap_conn_change_t *event_data)
         // 设置全局gap状态
         g_gap_data.conn_handle = -1;
         g_gap_data.state = GAP_STATE_DISCONNECTING;
-        // 如果主机主动断开连接,则不启动广播,否则启动广播
-        if (event_data->err == 19) {
-            LOGI("GAP", "BT_HCI_ERR_REMOTE_USER_TERM_CONN");
+        // 如果远程主机主动断开连接(19)或者本机主动断开连接(22),则不启动广播,否则启动广播
+        if (event_data->err == 19 || event_data->err == 22) {
+            LOGI("GAP", "BT_HCI_ERR_REMOTE_USER_TERM_CONN or BT_HCI_ERR_LOCALHOST_TERM_CONN");
         } else {
             // 有绑定信息,启动直连广播
             if (bond_info.is_bonded) {
@@ -416,8 +424,6 @@ static void ota_event_callback(ota_state_en state)
 
 static int gap_event_callback(ble_event_en event, void *event_data)
 {
-    LOGI(TAG, "GAP event %x\n", event);
-
     switch (event) {
         case EVENT_GAP_CONN_CHANGE:
             gap_event_conn_change(event_data);
