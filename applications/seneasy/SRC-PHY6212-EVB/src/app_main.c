@@ -71,54 +71,44 @@ void cli_reg_cmd_keysend(void)
  * @param vk， 按下的按键
  * @param state ，KSCAN_KEY_PRESSED/KSCAN_KEY_RELEASE
  */
-void on_msg_keyscan(kscan_key_t vk, int16_t state)
+void on_msg_key(kscan_key_t vk, int16_t state)
 {
     /**
      * @brief 设备连接状态判断
-     * ble连接已连接：mode = 1；
-     *  1.按键发送HID键码
-     * ble未连接： mode = 0
-     *  1.按键发送IR键码
+
+ 
      */
-    uint8_t mode = 0;
-    if (g_gap_data.state == GAP_STATE_PAIRED || g_gap_data.state == GAP_STATE_CONNECTED) { 
-        mode = 1;
-    }
 
     // 0.特殊按键处理:power
     if (vk == VK_KEY_01) {
         if (state == MSG_KEYSCAN_KEY_PRESSED) {
-            rcu_ble_power_key();
+            rcu_ble_start_adversting(ADV_START_POWER_KEY);
         }
     }
-
-    // 1.功能键按下处理
-    if (vk >= VK_KEY_FUNC && state == MSG_KEYSCAN_KEY_PRESSED) {
-        led_on();
-        // 组合键(10+3):启动广播
-        if (vk == VK_KEY_FUNC1) {
-            rcu_ble_pairing();
+    // 1.功能键(组合键:10+3)按下处理
+    if (vk == VK_KEY_FUNC1) {
+        if (state == MSG_KEYSCAN_KEY_PRESSED) {
+            rcu_ble_start_adversting(ADV_START_PAIRING_KEY);
         }
     } 
-    // 2.发码键按下处理
-    else if (vk < VK_KEY_FUNC && state == MSG_KEYSCAN_KEY_PRESSED) {
-        if (mode == 1) {
-            rcu_send_hid_key_down(vk);
-        } else {
-            rcu_send_ir_key_down(vk);
-        }
+    // 发码键处理
+    bool is_hid = false;
+    if (g_gap_data.state == GAP_STATE_PAIRED || g_gap_data.state == GAP_STATE_CONNECTED) {
+        is_hid = true;
     }
-    // 3.其他状态
-    else {
-        LOGE(TAG, "vk=%d, state=%d", vk, state);
-        if (mode == 1) {
-            rcu_send_hid_key_release();
+    if (state == MSG_KEYSCAN_KEY_PRESSED) {
+        if (is_hid) { 
+            rcu_send_hid_key_down(vk);  // ble连接已连接：按键发送HID键码
+        } else {
+            rcu_send_ir_key_down(vk);   // ble未连接：按键发送IR键码
         }
-        rcu_send_ir_key_release();      // 按键释放时停止ir发送，防止状态切换后ir无法停止
+    } else {
+        rcu_send_hid_key_release();
+        rcu_send_ir_key_release();
     }
 }
 
-void event_handle_voice()
+void event_handler_voice()
 {
     voice_trans_frame_t frame;
     bool first = true;
@@ -153,18 +143,17 @@ void event_handle_voice()
  * 
  * @param msg 
  */
-void event_handle_message()
+void event_handler_io_message()
 {
     app_msg_t msg;
     if (app_recv_message(&msg, 0) == false) {
         return;
     }
-
     switch(msg.type) {
         case MSG_KEYSCAN:
             LOGI("APP", "io message: %s = %2x\n", 
                                     (msg.subtype == MSG_KEYSCAN_KEY_PRESSED) ? "KEY DOWN":"KEY RELEASE", msg.param);                       
-            on_msg_keyscan(msg.param, msg.subtype);
+            on_msg_key(msg.param, msg.subtype);
             break;
         case MSG_BT_GAP:
             break;
@@ -218,14 +207,14 @@ int app_main(int argc, char *argv[])
          * @brief 处理系统消息：消息由各模块产生
          */
         if (actl_flags & APP_EVENT_MSG) {
-            event_handle_message();
+            event_handler_io_message();
         }
 
         /**
          * @brief 语音数据事件：microphone启动后，由ADC DMA中断触发
          */
         if (actl_flags & APP_EVENT_VOICE) {
-            event_handle_voice();
+            event_handler_voice();
         }
 
         /**
