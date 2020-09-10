@@ -29,7 +29,7 @@
 #include <pwrmgr.h>
 
 // 驱动和service
-#include "drivers/led.h"
+#include "drivers/leds.h"
 #include "drivers/keyscan.h"
 #include "drivers/voice/voice_driver.h"
 #include "services/hid_service.h"
@@ -75,16 +75,12 @@ void cli_reg_cmd_keysend(void)
  */
 void on_msg_key(kscan_key_t vk, int16_t state)
 {
-    /**
-     * @brief 设备连接状态判断
-
- 
-     */
-
     // 0.特殊按键处理:power
     if (vk == VK_KEY_01) {
         if (state == MSG_KEYSCAN_KEY_PRESSED) {
-            rcu_ble_start_adversting(ADV_START_POWER_KEY);
+            if (g_gap_data.state != GAP_STATE_CONNECTED || g_gap_data.state != GAP_STATE_PAIRED) {
+                rcu_ble_start_adversting(ADV_START_POWER_KEY);
+            }
         }
     }
     // 1.功能键(组合键:10+3)按下处理
@@ -92,21 +88,23 @@ void on_msg_key(kscan_key_t vk, int16_t state)
         if (state == MSG_KEYSCAN_KEY_PRESSED) {
             rcu_ble_start_adversting(ADV_START_PAIRING_KEY);
         }
+
+        if (state == MSG_KEYSCAN_KEY_HOLD) {
+            rcu_ble_clear_pairing();
+        }
     } 
     // 发码键处理
-    bool is_hid = false;
     if (g_gap_data.state == GAP_STATE_PAIRED || g_gap_data.state == GAP_STATE_CONNECTED) {
-        is_hid = true;
-    }
-    if (state == MSG_KEYSCAN_KEY_PRESSED) {
-        if (is_hid) { 
-            rcu_send_hid_key_down(vk);  // ble连接已连接：按键发送HID键码
+        if (state == MSG_KEYSCAN_KEY_PRESSED) {
+            int err = 0;
+            err = rcu_send_hid_key_down(vk);    // ble连接已连接：按键发送HID键码
+            if (err == 0) {
+                rcu_led_red_on();
+            }
         } else {
-            rcu_send_ir_key_down(vk);   // ble未连接：按键发送IR键码
+            rcu_send_hid_key_release();
+            rcu_led_red_on();
         }
-    } else {
-        rcu_send_hid_key_release();
-        rcu_send_ir_key_release();
     }
 }
 
@@ -145,6 +143,13 @@ void event_handler_voice()
  * 
  * @param msg 
  */
+const char *key_state_str[5] = {
+    "PRESSED",
+    "HOLD",
+    "COMBINE",
+    "RELEASE",
+    "RELEASE_ALL"
+};
 void event_handler_io_message()
 {
     app_msg_t msg;
@@ -153,8 +158,7 @@ void event_handler_io_message()
     }
     switch(msg.type) {
         case MSG_KEYSCAN:
-            LOGI("APP", "io message: %s = %2x\n", 
-                                    (msg.subtype == MSG_KEYSCAN_KEY_PRESSED) ? "KEY DOWN":"KEY RELEASE", msg.param);                       
+            LOGI("APP", "key_%02d: %s", msg.param, key_state_str[msg.subtype]);                       
             on_msg_key(msg.param, msg.subtype);
             break;
         case MSG_BT_GAP:
@@ -188,6 +192,8 @@ int app_main(int argc, char *argv[])
 
     board_yoc_init();
 
+    rcu_led_init();
+    
     // 构建消息队列
     app_init_message();
     // ir_nec_start_send(0x55, 0x01);
@@ -196,6 +202,8 @@ int app_main(int argc, char *argv[])
     // ir_nec_start_send(0x55, 0x31);
     // 启动蓝牙
     rcu_ble_init();
+
+    // disableSleepInPM(0x01);
 
 #ifdef __DEBUG__
     cli_reg_cmd_keysend();

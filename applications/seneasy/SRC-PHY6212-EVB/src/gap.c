@@ -1,8 +1,10 @@
 #include <aos/ble.h>
 #include "gap.h"
 #include <log.h>
+#include "errno.h"
 
 #include "app_msg.h"
+#include "drivers/leds.h"
 
 #define TAG "GAP"
 
@@ -82,6 +84,7 @@ bool stop_adv()
         LOGE("GAP", "failed to stop adversting");
         return false;
     } else {
+        rcu_led_red_off();
         return true;
     }
     // if (adv_timer.hdl.timer_state == TIMER_ACTIVE) {
@@ -169,7 +172,7 @@ bool remove_bond_info()
 }
 
 
-static bool start_adv(adv_param_t * p_adv_param, uint32_t timeout)
+static int start_adv(adv_param_t * p_adv_param, uint32_t timeout)
 {
     /**
      * ADV_IND =                 0x00, 
@@ -211,12 +214,12 @@ static bool start_adv(adv_param_t * p_adv_param, uint32_t timeout)
             }
         }
         LOGI(TAG, "advertising started %s!, will stop after %d ms", (g_gap_data.ad_type == ADV_IND) ? "indirect":"direct", timeout);
-        return true;
+        return 0;
     } 
     // 广播启动失败
     else {
         LOGE(TAG, "advertising start failed: %d!", err);
-        return false;
+        return err;
     } 
 }
 
@@ -397,7 +400,7 @@ static ble_event_cb_t ble_cb = {
  * @return true 
  * @return false 
  */
-bool rcu_ble_init()
+int rcu_ble_init()
 {
     int ret = 0;
     dev_addr_t addr = {DEV_ADDR_LE_PUBLIC, DEVICE_ADDR};
@@ -423,16 +426,17 @@ bool rcu_ble_init()
     g_gap_data.p_atvv = atvv_service_init();
     ble_ota_init(ota_event_callback);
 
-    // 加载配对信息并启动广播
+    // 广播定时器
     ret = aos_timer_new_ext(&adv_timer, adv_timer_callback, NULL, 3000, 0, 0);
     if (ret != 0 ) {
         LOGE("GAP", "advertising timer create failed");
     }
-    // start_adv(ADV_IND);
-    return true;
+    // 启动上电广播
+    rcu_ble_start_adversting(ADV_START_POWER_ON);
+    return 0;
 }
 
-void rcu_ble_start_adversting(adv_start_reson_t reson)
+int rcu_ble_start_adversting(adv_start_reson_t reson)
 {
     adv_param_t param = {
         .channel_map = ADV_DEFAULT_CHAN_MAP,
@@ -440,8 +444,8 @@ void rcu_ble_start_adversting(adv_start_reson_t reson)
             .type = DEV_ADDR_LE_PUBLIC,
             .val = {0,0,0,0,0,0}
         },
-        .interval_min = 10,
-        .interval_max = 100,
+        .interval_min = ADV_FAST_INT_MIN_1,
+        .interval_max = ADV_FAST_INT_MAX_1,
         .ad = app_adv_data,
         .ad_num = BLE_ARRAY_NUM(app_adv_data),
         .sd = app_scan_rsp_data,
@@ -455,14 +459,14 @@ void rcu_ble_start_adversting(adv_start_reson_t reson)
         LOGI("GAP", "restart adversting, will stop after %dmS", adv_timeout);
         // 正在发直连广播,等待发送结束
         if (g_gap_data.ad_type == ADV_DIRECT_IND) { 
-            return;
+            return 0;
         } 
         // 其他广播方式, 重置计数器/停止广播
         else {
             aos_timer_stop(&adv_timer);
             aos_timer_change_without_repeat(&adv_timer, ADV_PAIRING_TIMEOUT);
             aos_timer_start(&adv_timer);
-            return ;
+            return 0;
         }
     } else if (g_gap_data.state == GAP_STATE_IDLE) {
         // 根据不同情况发起广播
@@ -526,14 +530,15 @@ void rcu_ble_start_adversting(adv_start_reson_t reson)
             default:
                 break;
         }
-        start_adv(&param, adv_timeout);
+        rcu_led_red_flash(200, 800);
+        return start_adv(&param, adv_timeout);
     } else {
-        LOGI("GAP", "rcu status %d is not allowed to start adv again!", g_gap_data.state);
-        return;
+        LOGE("GAP", "rcu status %d is not allowed to start adv again!", g_gap_data.state);
+        return -100;
     }
 }
 
-void rcu_ble_clear_pairing()
+int rcu_ble_clear_pairing()
 {
 
     // 其他状态：
@@ -541,7 +546,7 @@ void rcu_ble_clear_pairing()
     if (g_gap_data.state == GAP_STATE_PAIRED || g_gap_data.state == GAP_STATE_CONNECTED) {
         if (ble_stack_disconnect(g_gap_data.conn_handle) != 0) {
             LOGE("GAP", "can`t disconect with remote device");
-            return;
+            return -1;
         }
     } 
     // 2.正在广播中: 停止广播
@@ -549,23 +554,33 @@ void rcu_ble_clear_pairing()
         int err = ble_stack_adv_stop();
         if (err != 0) {
             LOGE("GAP", "can`t stop advertising, err=%d", err);
+            return -2;
+        } else {
+            aos_timer_stop(&adv_timer);
+            g_gap_data.state = GAP_STATE_IDLE;
         }
     }
     // 3.等待处于空闲状态
-    uint32_t timeout = 0;
-    while (g_gap_data.state != GAP_STATE_IDLE) {
-        aos_msleep(10);
-        timeout += 10;
-        if (timeout  > 1000){
-            LOGE("GAP", "rcu status %d is not allowed to remove bond info", g_gap_data.state);
-            return;
-        }
-    }
+    // uint32_t timeout = 0;
+    // while (g_gap_data.state != GAP_STATE_IDLE) {
+    //     aos_msleep(10);
+    //     timeout += 10;
+    //     if (timeout  > 10000){
+    //         LOGE("GAP", "rcu status %d is not allowed to remove bond info", g_gap_data.state);
+    //         return -3;
+    //     }
+    // }
     // 4.清除配对信息
     if (bond_info.is_bonded) {
-        remove_bond_info();
+        if(remove_bond_info()) {
+            LOGI("GAP", "remove bond info success");
+        } else {
+            LOGE("GAP", "remove bond info failed");
+        }
+    } else {
+        LOGE("GAP", "no bond info");
     }
     // 5.发起非直连广播，重启配对过程
-    rcu_ble_start_adversting(ADV_START_PAIRING_KEY);
+    return rcu_ble_start_adversting(ADV_START_PAIRING_KEY);
 }
 

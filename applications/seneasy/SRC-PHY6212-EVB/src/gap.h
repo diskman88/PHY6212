@@ -62,9 +62,9 @@ typedef enum {
 extern ble_gap_state_t g_gap_data;
 extern bond_info_t bond_info;
 
-bool rcu_ble_init();
+int rcu_ble_init();
 
-void rcu_ble_start_adversting(adv_start_reson_t reson);
+int rcu_ble_start_adversting(adv_start_reson_t reson);
 
-void rcu_ble_clear_pairing();
+int rcu_ble_clear_pairing();
 #endif

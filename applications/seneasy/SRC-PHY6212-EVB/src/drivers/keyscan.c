@@ -470,36 +470,55 @@ void keyscan_task(void * args)
 						if (keys_pressed[0]->state == KEY_DOWN) {		// 单键按下
 							msg.subtype = MSG_KEYSCAN_KEY_PRESSED;
 							msg.param = get_one_key(keys_pressed[0]->code);
+							// 发送系统消息
+							if (msg.param != 0) {
+								if (app_send_message(&msg) == false) {
+									LOGE("KEYSCAN", "send message failed");
+								}
+								is_vk_pressed = true;
+							}	
 						}
 						if (keys_pressed[0]->state == KEY_HOLD) {		// 单键长按
-							msg.subtype = MSG_KEYSCAN_KEY_PRESSED;
-							msg.param = get_hold_key(keys_pressed[0]->code);	
+							msg.subtype = MSG_KEYSCAN_KEY_HOLD;
+							msg.param = get_one_key(keys_pressed[0]->code);
+							// 发送系统消息
+							if (msg.param != 0) {
+								if (app_send_message(&msg) == false) {
+									LOGE("KEYSCAN", "send message failed");
+								}
+								is_vk_pressed = true;
+							}	
 						}
-						// 发送系统消息
-						if (msg.param != 0) {
-							if (app_send_message(&msg) == false) {
-								LOGE("KEYSCAN", "send message failed");
-							}
-							is_vk_pressed = true;
-						}	
 						// LOGI("KEYSCAN", "vk: 1 key pressed:%2X, scan code = %d", msg.param, keys_pressed[0]->code);
 					}
 				}
 				// 双键按下
 				if (key_num == 2) {				
 					if (keys_pressed[0]->is_changed || keys_pressed[1]->is_changed) {
-						// 只处理按键按下事件
-						if (keys_pressed[0]->state == KEY_DOWN || keys_pressed[1]->state == KEY_DOWN) {
+						// 双键按下
+						if (keys_pressed[0]->state == KEY_DOWN && keys_pressed[1]->state == KEY_DOWN) {
 							msg.subtype = MSG_KEYSCAN_KEY_PRESSED;
 							msg.param = get_combin_key(keys_pressed[0]->code, keys_pressed[1]->code);
-						}	
-						// 发送系统消息
-						if (msg.param != 0) {
-							if (app_send_message(&msg) == false) {
-								LOGE("KEYSCAN", "send message failed");
+							// 发送系统消息
+							if (msg.param != 0) {
+								if (app_send_message(&msg) == false) {
+									LOGE("KEYSCAN", "send message failed");
+								}
+								is_vk_pressed = true;
 							}
-							is_vk_pressed = true;
-						}					
+						}	
+						// 双键长按
+						if (keys_pressed[0]->state == KEY_HOLD && keys_pressed[1]->state == KEY_HOLD) {
+							msg.subtype = MSG_KEYSCAN_KEY_HOLD;
+							msg.param = get_combin_key(keys_pressed[0]->code, keys_pressed[1]->code);
+							// 发送系统消息
+							if (msg.param != 0) {
+								if (app_send_message(&msg) == false) {
+									LOGE("KEYSCAN", "send message failed");
+								}
+								is_vk_pressed = true;
+							}
+						}												
 						// LOGI("KEYSCAN", "vk: 2 key pressed:%2X, scan code = %d,%d", msg.param, keys_pressed[0]->code, keys_pressed[1]->code);
 					}
 				}

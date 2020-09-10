@@ -35,7 +35,7 @@ SRC_DRVERS =  drivers/keyscan.c \
               drivers/voice/voice_driver.c \
               drivers/voice/ima_adpcm.c \
               drivers/ir_nec.c \
-              drivers/led.c
+              drivers/leds.c
 
 L_SRCS += ${SRC_BLE_SERVICES} ${SRC_DRVERS}
 

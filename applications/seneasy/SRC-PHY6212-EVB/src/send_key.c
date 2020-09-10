@@ -9,7 +9,6 @@
  * 
  */
 
-#include "drivers/led.h"
 #include "send_key.h"
 
 const rcu_key_map_t rcu_key_map_table[RCU_KEY_NUM] = {
@@ -144,6 +143,5 @@ int rcu_send_ir_key_down(kscan_key_t vk)
 
 int rcu_send_ir_key_release()
 {
-    led_off();
     return ir_nec_stop_send();
 }
