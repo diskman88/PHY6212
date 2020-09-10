@@ -78,35 +78,9 @@ static ad_data_t app_adv_data_power[5] = {
     }
 };
 
-bool stop_adv()
-{
-    if (ble_stack_adv_stop() != 0) {
-        LOGE("GAP", "failed to stop adversting");
-        return false;
-    } else {
-        rcu_led_red_off();
-        return true;
-    }
-    // if (adv_timer.hdl.timer_state == TIMER_ACTIVE) {
-    //     aos_timer_stop(&adv_timer);
-    // }
-}
-
-static void adv_timer_callback(void *arg1, void *arg2)
-{
-    if (g_gap_data.state == GAP_STATE_ADVERTISING) {
-        if (stop_adv() == true) {
-            LOGI("GAP", "advertising stoped");
-            g_gap_data.state = GAP_STATE_IDLE;
-        } else {
-            LOGE("GAP", "advertising cant not been stoped");
-        }
-    }
-}
-
 #define KEY_BOND_INFO   "BOND"
 bond_info_t bond_info = {0};
-bool save_bond_info(dev_addr_t *p_remote_addr)
+static bool bond_info_save(dev_addr_t *p_remote_addr)
 {
     int ret;
     bond_info.is_bonded = true; 
@@ -127,7 +101,7 @@ bool save_bond_info(dev_addr_t *p_remote_addr)
     return true;
 }
 
-bool load_bond_info()
+static bool bond_info_load()
 {
     int len,ret;
     bond_info.is_bonded = false;
@@ -147,7 +121,7 @@ bool load_bond_info()
     }   
 }
 
-bool remove_bond_info()
+static bool bond_info_remove()
 {
     int ret;
     ret = ble_stack_dev_unpair(NULL);
@@ -169,6 +143,20 @@ bool remove_bond_info()
         return false;
     }
     return true;
+}
+
+static void adv_timer_callback(void *arg1, void *arg2)
+{
+    rcu_led_red_off();
+    if (g_gap_data.state == GAP_STATE_ADVERTISING) {
+        int err = ble_stack_adv_stop();
+        if (err == 0) {
+            LOGI("GAP", "advertising stoped");
+            g_gap_data.state = GAP_STATE_IDLE;
+        } else {
+            LOGE("GAP", "advertising cant not been stoped");
+        }
+    }
 }
 
 
@@ -257,7 +245,7 @@ static void gap_event_smp_pairing_complete(evt_data_smp_pairing_complete_t *even
         g_gap_data.state = GAP_STATE_PAIRED;
         g_gap_data.paired_addr = event_data->peer_addr;
         if (event_data->bonded ) {
-            save_bond_info(&(event_data->peer_addr));
+            bond_info_save(&(event_data->peer_addr));
             LOGI(TAG, "bond with remote device:%02x-%02x-%02x-%02x-%02x-%02x",   
                                                     event_data->peer_addr.val[0],
                                                     event_data->peer_addr.val[1],
@@ -269,7 +257,7 @@ static void gap_event_smp_pairing_complete(evt_data_smp_pairing_complete_t *even
         }
     } else {
         LOGI(TAG, "pairing %s!!!, error=%d", event_data->err ? "FAIL" : "SUCCESS", event_data->err);
-        remove_bond_info();
+        bond_info_remove();
     }
 }
 
@@ -299,13 +287,13 @@ static void gap_event_conn_change(evt_data_gap_conn_change_t *event_data)
         g_gap_data.conn_handle = event_data->conn_handle;
         g_gap_data.state = GAP_STATE_CONNECTED;
         aos_timer_stop(&adv_timer);
-        // led_set_status(BLINK_SLOW);
+        rcu_led_red_off();
     } 
 
     if (event_data->connected == DISCONNECTED) {
         // 设置全局gap状态
         g_gap_data.conn_handle = -1;
-        g_gap_data.state = GAP_STATE_DISCONNETED;
+        g_gap_data.state = GAP_STATE_IDLE;
         // 如果远程主机主动断开连接(19)或者本机主动断开连接(22),则不启动广播,否则启动广播
         if (event_data->err == 19 || event_data->err == 22) {
             LOGI("GAP", "BT_HCI_ERR_REMOTE_USER_TERM_CONN or BT_HCI_ERR_LOCALHOST_TERM_CONN");
@@ -315,8 +303,6 @@ static void gap_event_conn_change(evt_data_gap_conn_change_t *event_data)
             rcu_ble_start_adversting(ADV_START_RECONNECT);
         }
     }
-
-
 }
 
 static void gap_event_conn_param_update(evt_data_gap_conn_param_update_t *event_data)
@@ -478,7 +464,7 @@ int rcu_ble_start_adversting(adv_start_reson_t reson)
              *  2.如果没有配对,发普通非直连广播
              */
             case ADV_START_POWER_ON:
-                if (load_bond_info() && bond_info.is_bonded) {
+                if (bond_info_load() && bond_info.is_bonded) {
                     param.type = ADV_DIRECT_IND;
                     param.filter_policy = ADV_FILTER_POLICY_ALL_REQ;
                     param.direct_peer_addr = bond_info.remote_addr;
@@ -572,7 +558,7 @@ int rcu_ble_clear_pairing()
     // }
     // 4.清除配对信息
     if (bond_info.is_bonded) {
-        if(remove_bond_info()) {
+        if(bond_info_remove()) {
             LOGI("GAP", "remove bond info success");
         } else {
             LOGE("GAP", "remove bond info failed");
