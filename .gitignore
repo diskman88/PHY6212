@@ -6,3 +6,8 @@ out/
 csi/out/
 yoc_sdk/
 *.pyc
+
+# 忽略例程
+applications/bluetooth
+applications/driver_examples
+applications/kernel_examples
