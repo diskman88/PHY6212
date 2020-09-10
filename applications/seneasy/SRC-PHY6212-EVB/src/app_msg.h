@@ -39,6 +39,8 @@ typedef enum {
  */
 typedef enum {
     MSG_KEYSCAN_KEY_PRESSED,       // 有按键按下了
+    MSG_KEYSCAN_KEY_HOLD,
+    MSG_KEYSCAN_KEY_COMBINE,
     MSG_KEYSCAN_KEY_RELEASE,       // 有按键释放了
     MSG_KEYSCAN_KEY_RELEASE_ALL,   // 所有按键都释放了
 }keyscan_message_type_t;

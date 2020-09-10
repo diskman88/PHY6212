@@ -282,12 +282,11 @@ void kscan_wakeup_action()
 		kscan_row_sleep_state = kscan_row_sleep_state >> 1;
 	}
 	// 行输入发生了改变,通知键盘扫描启动
-	if (i != 0) {
-		kscan_gpio_col_init();
-		kscan_gpio_row_init();
-		aos_sem_signal(&sem_keyscan_start);
-		LOGI("KEYSCAN", "keyscan wakeup");
-	}
+	aos_sem_signal(&sem_keyscan_start);
+	// if (i != 0) {
+	// 	aos_sem_signal(&sem_keyscan_start);
+	// 	LOGI("KEYSCAN", "keyscan wakeup");
+	// }
 }
 
 
@@ -429,29 +428,42 @@ void keyscan_task(void * args)
 	bool is_vk_pressed = false;
 	
 	while(1) {
-		// 按键状态发生改变,睡眠状态唤醒/发生中断
+		// 按键状态发生改变,扫描获取按键信息,由2种事件触发:
+		// 	1.睡眠状态唤醒
+		//	2.行线发生中断
 		aos_sem_wait(&sem_keyscan_start, AOS_WAIT_FOREVER);
-
-		// 禁止睡眠
+		// 按键扫描时禁止睡眠
 		disableSleepInPM(0x02);
-
 		// 处理按键时,禁止中断
 		kscan_row_interrupt_disable();	
-		// aos_timer_start(&kscan_timer);
-
-		// uint64_t t1 = csi_kernel_get_ticks();
-		// LOGI("KEYSCAN", "start with:%d", t1);
+		kscan_gpio_col_init();	// 重新配置行列
+		kscan_gpio_row_init();
+		// 发送个APP的消息
 		app_msg_t msg;
 		msg.type = MSG_KEYSCAN;
-		msg.subtype = MSG_KEYSCAN_KEY_RELEASE_ALL;
-		msg.param = VK_KEY_NULL;
+		is_vk_pressed = false;
+		// 开始读取按键值
 		while (1) {
-			// 扫描按键,获取按键值
+			// 扫描按键,获取扫描码和按键个数
 			uint8_t key_num = kscan_read_keycode();
-			// LOGI("KEYSCAN", "kscan_read_keycode:%d,code1=%d,code2=%d", key_num, keys_pressed[0]->code, keys_pressed[1]->code);
-
-			// 有键按下
-			if (key_num != 0) {	
+			// 无按键按下:
+			// 	1.如果之前有VK按下,则发送按键释放消息
+			// 	2.退出扫描
+			if (key_num == 0) {
+				if (is_vk_pressed) {
+					msg.subtype = MSG_KEYSCAN_KEY_RELEASE_ALL;
+					if (app_send_message(&msg)) {
+						is_vk_pressed = false;
+						break;	// 退出循环
+					} else {
+						LOGE("KEYSCAN", "send message failed");	// ！！！！按键释放未发送成功，需要再次发送
+					}
+				} else {
+					break;
+				}
+			} 
+			// 有键按下,处理按键
+			else {
 				// 单键按下
 				if (key_num == 1) {		
 					if(keys_pressed[0]->is_changed) {
@@ -496,19 +508,6 @@ void keyscan_task(void * args)
 					continue;
 				}						
 			}
-			// 按键松开
-			else {
-				if (is_vk_pressed) {
-					msg.subtype = MSG_KEYSCAN_KEY_RELEASE_ALL;
-					if (app_send_message(&msg)) {
-						is_vk_pressed = false;
-						break;	// 退出循环
-					} else {
-						// ！！！！按键释放未发送成功，需要再次发送
-						LOGE("KEYSCAN", "send message failed");
-					}
-				}
-			}
 			// aos_sem_wait(&sem_keyscan_start, AOS_WAIT_FOREVER);
 			// // 按键超时, 任意按键按下超过5S
 			// if ((csi_kernel_get_ticks() - t1) > 5000) {
@@ -518,9 +517,7 @@ void keyscan_task(void * args)
 			// 延时
 			csi_kernel_delay_ms(50);
 		}
-
-		// 使能中断,以启动键盘扫描
-		// csi_kernel_delay_ms(50); 	// 消除按键松开抖动
+		// 使能中断,非睡眠时也能启动键盘扫描
 		kscan_row_interrupt_enable();
 		enableSleepInPM(0x02);
 	}
@@ -534,7 +531,7 @@ int create_keyscan_task()
 	// s = aos_task_new("keyscan task", keyscan_task, NULL, 1024);
 	s += aos_task_new_ext(&hTaskKeyscan, "keyscan", keyscan_task, NULL, keyscan_stack, 2048, AOS_DEFAULT_APP_PRI);
 	s += aos_sem_new(&sem_keyscan_start, 1);
-	s += aos_timer_new_ext(&kscan_timer, kscan_timer_callback, NULL, 50, 1, 0);
+	// s += aos_timer_new_ext(&kscan_timer, kscan_timer_callback, NULL, 50, 1, 0);
 	// s += aos_timer_new_ext(&timer_keyscan, kscan_period_scan, NULL, 50, 1, 1);
 
     // s = krhino_task_create(&hTaskKeyscan, "keyscan task", NULL,
