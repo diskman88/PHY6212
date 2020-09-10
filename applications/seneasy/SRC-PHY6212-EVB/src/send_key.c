@@ -113,7 +113,6 @@ int rcu_send_hid_key_down(kscan_key_t vk)
     int ret;
     press_key_data hid_key;
     if (get_hid_key(vk, &hid_key)) {
-        led_on();
         ret = hid_key_board_send(&hid_key);
         return ret;
     } else {
@@ -127,7 +126,6 @@ int rcu_send_hid_key_release()
     int ret;
     press_key_data hid_key = {0};
     ret = hid_key_board_send(&hid_key);
-    led_off();
     return ret;
 }
 
@@ -136,7 +134,6 @@ int rcu_send_ir_key_down(kscan_key_t vk)
     int ret;
     uint8_t ir_key;
     if (get_ir_key(vk, &ir_key)) {
-        led_on();
         ret = ir_nec_start_send(0x40, ir_key);
         return ret; 
     } else {
