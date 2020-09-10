@@ -20,13 +20,15 @@
 #include "drv_gpio.h"
 #include "gpio.h"
 
-#define LED_PIN GPIO_P23
+#define RED_LED_PIN GPIO_P23
 
 
-void led_on();
+void rcu_led_init();
 
-void led_off();
+void rcu_led_red_on();
 
-void led_flash(uint32_t duty, uint32_t period, uint16_t times);
+void rcu_led_red_off();
+
+void rcu_led_red_flash(int on_time, int off_time);
 
 #endif
