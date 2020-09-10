@@ -101,106 +101,6 @@ static void adv_timer_callback(void *arg1, void *arg2)
     }
 }
 
-static bool start_adv(int type)
-{
-    /**
-     * ADV_IND =                 0x00, 
-     * 非定向广播，可被连接，可被扫描；
-     *  广播包间隔 <= 10ms, 广播事件间隔[20ms,10.24s];
-     *  用于常规的广播，可携带不超过31bytes的广播数据：
-     * 
-     * ADV_DIRECT_IND =          0x01, 
-     * 定向广播:
-     *  广播包间隔 <= 3.75ms，没有间隔，1.28s后退出广播
-     *  专门用于点对点连接，且已经知道双方的蓝牙地址，不可携带广播数据，可被指定的设备连接，不可被扫描：
-     * 
-     * ADV_SCAN_IND =            0x02,  
-     * 非定向广播，不可以被连接，可以被扫描:
-     *  广播包间隔 <= 10ms, 广播事件间隔范围[100ms, 10.24s]
-     * 
-     * ADV_NONCONN_IND =         0x03,  
-     * 非定向广播，不可以被连接，不可以被扫描:
-     *  广播包间隔 <= 10ms，广播事件间隔范围[100ms, 10.24s]
-     * 
-     * ADV_DIRECT_IND_LOW_DUTY = 0x04,  
-     * 定向广播:
-     *  广播包间隔 <= 3.75ms， 广播事件间隔[20, 10.24s]
-     */
-    // 根据不同的广播类型配置广播参数
-    // type = ADV_IND;
-    int adv_timeout = 0;
-    static adv_param_t param;
-    switch (type)
-    {
-        // 配对广播
-        case ADV_IND:
-        case ADV_TYPE_CUSTOM:
-            param.type = ADV_IND;
-            if (type == ADV_IND) {
-                param.ad = app_adv_data;
-                param.ad_num = 4;
-            }
-            if (type == ADV_TYPE_CUSTOM) {
-                param.ad = app_adv_data_power;
-                param.ad_num = 5;
-            }
-            param.sd = NULL;
-            param.sd_num = 0;
-            param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
-            param.channel_map = ADV_DEFAULT_CHAN_MAP;
-            memset(&param.direct_peer_addr, 0, sizeof(dev_addr_t));
-            param.interval_min = ADV_FAST_INT_MIN_1;
-            param.interval_max = ADV_FAST_INT_MAX_1;
-            // param.type = ADV_IND;
-            // // memset(&param.direct_peer_addr, 0, sizeof(dev_addr_t));
-            // param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
-            // param.interval_min = ADV_FAST_INT_MIN_1;    // 广播间隔在[160ms,240ms]之间
-            // param.interval_max = ADV_FAST_INT_MAX_1;
-            adv_timeout = ADV_PAIRING_TIMEOUT;
-            break;
-        // 回连广播
-        case ADV_DIRECT_IND:
-            param.type = ADV_IND;
-            param.ad = app_adv_data;
-            param.sd = app_scan_rsp_data;
-            param.ad_num = BLE_ARRAY_NUM(app_adv_data);
-            param.sd_num = BLE_ARRAY_NUM(app_scan_rsp_data);
-            param.filter_policy = ADV_FILTER_POLICY_ALL_REQ;
-            param.channel_map = ADV_DEFAULT_CHAN_MAP;
-            param.direct_peer_addr = bond_info.remote_addr;
-            param.interval_min = ADV_FAST_INT_MIN_1;
-            param.interval_max = ADV_FAST_INT_MAX_1;
-            adv_timeout = 0;
-            break;
-        default:
-            return false;
-    }
-    // 启动广播
-    int err = ble_stack_adv_start(&param);
-    if (err == 0) {
-        // 更新状态
-        g_gap_data.state = GAP_STATE_ADVERTISING;
-        g_gap_data.ad_type = type;
-        // 非直连广播，启动广播计时器
-        if (type != ADV_DIRECT_IND) {
-            int err = 0;
-            err = aos_timer_stop(&adv_timer);
-            err = aos_timer_change_without_repeat(&adv_timer, adv_timeout);
-            err = aos_timer_start(&adv_timer);
-            if (err != 0) {
-                LOGE(TAG, "advertising started!, but stop timer can`t work:%d", err);
-            }
-        }
-        LOGI(TAG, "advertising started %s!, will stop after %d ms", (type == ADV_IND) ? "indirect":"direct", adv_timeout);
-        return true;
-    } 
-    // 广播启动失败
-    else {
-        LOGE(TAG, "advertising start failed: %d!", err);
-        return false;
-    } 
-}
-
 #define KEY_BOND_INFO   "BOND"
 bond_info_t bond_info = {0};
 bool save_bond_info(dev_addr_t *p_remote_addr)
@@ -268,41 +168,62 @@ bool remove_bond_info()
     return true;
 }
 
-void rcu_ble_pairing()
-{
-    // 正在广播： 重置广播计时器，从新开始计时
-    if(g_gap_data.state == GAP_STATE_ADVERTISING) {
-        aos_timer_stop(&adv_timer);
-        aos_timer_change_without_repeat(&adv_timer, ADV_PAIRING_TIMEOUT);
-        aos_timer_start(&adv_timer);
-        LOGI("GAP", "restart adversting, will stop after %dmS", ADV_PAIRING_TIMEOUT);
-        return ;
-    }
-    // 其他状态：
-    // 1.已经连接或配对： 断开连接
-    if (g_gap_data.state == GAP_STATE_PAIRED || g_gap_data.state == GAP_STATE_CONNECTED) {
-        if (ble_stack_disconnect(g_gap_data.conn_handle) != 0) {
-            LOGE("GAP", "can`t disconect with remote device");
-            return;
-        }
-    }
-    // 2.如果已经有绑定信息，则清除绑定信息
-    if (bond_info.is_bonded) {
-        remove_bond_info();
-    }
-    // 3.发起非直连广播，重启配对过程
-    start_adv(ADV_IND);
-}
 
-void rcu_ble_power_key()
+static bool start_adv(adv_param_t * p_adv_param, uint32_t timeout)
 {
-    start_adv(ADV_TYPE_CUSTOM);
+    /**
+     * ADV_IND =                 0x00, 
+     * 非定向广播，可被连接，可被扫描；
+     *  广播包间隔 <= 10ms, 广播事件间隔[20ms,10.24s];
+     *  用于常规的广播，可携带不超过31bytes的广播数据：
+     * 
+     * ADV_DIRECT_IND =          0x01, 
+     * 定向广播:
+     *  广播包间隔 <= 3.75ms，没有间隔，1.28s后退出广播
+     *  专门用于点对点连接，且已经知道双方的蓝牙地址，不可携带广播数据，可被指定的设备连接，不可被扫描：
+     * 
+     * ADV_SCAN_IND =            0x02,  
+     * 非定向广播，不可以被连接，可以被扫描:
+     *  广播包间隔 <= 10ms, 广播事件间隔范围[100ms, 10.24s]
+     * 
+     * ADV_NONCONN_IND =         0x03,  
+     * 非定向广播，不可以被连接，不可以被扫描:
+     *  广播包间隔 <= 10ms，广播事件间隔范围[100ms, 10.24s]
+     * 
+     * ADV_DIRECT_IND_LOW_DUTY = 0x04,  
+     * 定向广播:
+     *  广播包间隔 <= 3.75ms， 广播事件间隔[20, 10.24s]
+     */
+    // 启动广播
+    int err = ble_stack_adv_start(p_adv_param);
+    if (err == 0) {
+        // 更新状态
+        g_gap_data.state = GAP_STATE_ADVERTISING;
+        g_gap_data.ad_type = p_adv_param->type;
+        // 非直连广播，启动广播计时器
+        if (g_gap_data.ad_type != ADV_DIRECT_IND) {
+            int err = 0;
+            err = aos_timer_stop(&adv_timer);
+            err = aos_timer_change_without_repeat(&adv_timer, timeout);
+            err = aos_timer_start(&adv_timer);
+            if (err != 0) {
+                LOGE(TAG, "advertising started!, but stop timer can`t work:%d", err);
+            }
+        }
+        LOGI(TAG, "advertising started %s!, will stop after %d ms", (g_gap_data.ad_type == ADV_IND) ? "indirect":"direct", timeout);
+        return true;
+    } 
+    // 广播启动失败
+    else {
+        LOGE(TAG, "advertising start failed: %d!", err);
+        return false;
+    } 
 }
 
 /*********************************************************************************
  * GAP 事件处理函数
  ********************************************************************************/
-#pragma region
+// #pragma regions
 /**
  * @brief 直连广播超时事件(启动后1.2s没有连接)
  * 
@@ -313,7 +234,7 @@ static void gap_event_adv_timeout(void *event_data)
     if (g_gap_data.ad_type == ADV_DIRECT_IND) {
         LOGI(TAG, "advertising timerout");  // 什么情况下会发生?
         g_gap_data.state = GAP_STATE_IDLE;
-        start_adv(ADV_IND);
+        rcu_ble_start_adversting(ADV_START_TIMEOUT);
     }
 }
 
@@ -381,17 +302,14 @@ static void gap_event_conn_change(evt_data_gap_conn_change_t *event_data)
     if (event_data->connected == DISCONNECTED) {
         // 设置全局gap状态
         g_gap_data.conn_handle = -1;
-        g_gap_data.state = GAP_STATE_DISCONNECTING;
+        g_gap_data.state = GAP_STATE_DISCONNETED;
         // 如果远程主机主动断开连接(19)或者本机主动断开连接(22),则不启动广播,否则启动广播
         if (event_data->err == 19 || event_data->err == 22) {
             LOGI("GAP", "BT_HCI_ERR_REMOTE_USER_TERM_CONN or BT_HCI_ERR_LOCALHOST_TERM_CONN");
-        } else {
-            // 有绑定信息,启动直连广播
-            if (bond_info.is_bonded) {
-                start_adv(ADV_DIRECT_IND);
-            } else {
-                start_adv(ADV_IND);
-            }
+        }
+        // 其他原因导致的断开连接,启动广播尝试回连
+        else {
+            rcu_ble_start_adversting(ADV_START_RECONNECT);
         }
     }
 
@@ -471,7 +389,7 @@ static ble_event_cb_t ble_cb = {
     .callback = gap_event_callback,
 };
 
-#pragma endregion
+// #pragma endregion
 
 /**
  * @brief 蓝牙协议栈初始化
@@ -510,28 +428,144 @@ bool rcu_ble_init()
     if (ret != 0 ) {
         LOGE("GAP", "advertising timer create failed");
     }
-    if (load_bond_info()) {
-        if (bond_info.is_bonded) {
-            LOGI("GAP", "device had bonded with %02x-%02x-%02x-%02x-%02x-%02x",   
-                                                    bond_info.remote_addr.val[0],
-                                                    bond_info.remote_addr.val[1],
-                                                    bond_info.remote_addr.val[2],
-                                                    bond_info.remote_addr.val[3],
-                                                    bond_info.remote_addr.val[4],
-                                                    bond_info.remote_addr.val[5]);
-
-        }
-    }
-
-    // 启动广播:
-    //  1.如果有配对过,发直连广播
-    //  2.如果没有配对,发普通非直连广播
-    if (bond_info.is_bonded == true) {
-        start_adv(ADV_DIRECT_IND);
-    } else {
-        start_adv(ADV_IND);
-    }
-
     // start_adv(ADV_IND);
     return true;
 }
+
+void rcu_ble_start_adversting(adv_start_reson_t reson)
+{
+    adv_param_t param = {
+        .channel_map = ADV_DEFAULT_CHAN_MAP,
+        .direct_peer_addr = {
+            .type = DEV_ADDR_LE_PUBLIC,
+            .val = {0,0,0,0,0,0}
+        },
+        .interval_min = 10,
+        .interval_max = 100,
+        .ad = app_adv_data,
+        .ad_num = BLE_ARRAY_NUM(app_adv_data),
+        .sd = app_scan_rsp_data,
+        .sd_num = BLE_ARRAY_NUM(app_scan_rsp_data),
+        .type = ADV_IND,
+        .filter_policy = ADV_FILTER_POLICY_ANY_REQ,
+    };
+    uint32_t adv_timeout = 30000;
+    // 正在广播
+    if (g_gap_data.state == GAP_STATE_ADVERTISING) {
+        LOGI("GAP", "restart adversting, will stop after %dmS", adv_timeout);
+        // 正在发直连广播,等待发送结束
+        if (g_gap_data.ad_type == ADV_DIRECT_IND) { 
+            return;
+        } 
+        // 其他广播方式, 重置计数器/停止广播
+        else {
+            aos_timer_stop(&adv_timer);
+            aos_timer_change_without_repeat(&adv_timer, ADV_PAIRING_TIMEOUT);
+            aos_timer_start(&adv_timer);
+            return ;
+        }
+    } else if (g_gap_data.state == GAP_STATE_IDLE) {
+        // 根据不同情况发起广播
+        switch (reson)
+        {
+            /**
+             * @brief 上电启动广播:
+             *  1.如果有配对信息,发直连广播
+             *  2.如果没有配对,发普通非直连广播
+             */
+            case ADV_START_POWER_ON:
+                if (load_bond_info() && bond_info.is_bonded) {
+                    param.type = ADV_DIRECT_IND;
+                    param.filter_policy = ADV_FILTER_POLICY_ALL_REQ;
+                    param.direct_peer_addr = bond_info.remote_addr;
+                } else {
+                    param.type = ADV_IND;
+                    param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
+                }
+                break;
+            /**
+             * @brief power按键广播
+             *  发送包含自定义数据的广播包
+             */
+            case ADV_START_POWER_KEY:
+                param.type = ADV_IND;
+                param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
+                param.ad = app_adv_data_power;
+                param.ad_num = BLE_ARRAY_NUM(app_adv_data_power);
+                break;
+            /**
+             * @brief 配对按键启动广播
+             * 
+             */
+            case ADV_START_PAIRING_KEY:     // 启动正常广播
+                param.type = ADV_IND;
+                param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
+                break;
+            /**
+             * @brief 断连后启动广播
+             * 
+             */
+            case ADV_START_RECONNECT:
+                if (bond_info.is_bonded) {
+                    param.type = ADV_DIRECT_IND;
+                    param.filter_policy = ADV_FILTER_POLICY_ALL_REQ;
+                    param.direct_peer_addr = bond_info.remote_addr;                    
+                } else {
+                    param.type = ADV_IND;
+                    param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;                    
+                }
+                break;
+            /**
+             * @brief 直连广播超时后,启动非直连广播
+             * 
+             */
+            case ADV_START_TIMEOUT:
+                param.type = ADV_IND;
+                param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
+                break;
+            default:
+                break;
+        }
+        start_adv(&param, adv_timeout);
+    } else {
+        LOGI("GAP", "rcu status %d is not allowed to start adv again!", g_gap_data.state);
+        return;
+    }
+}
+
+void rcu_ble_clear_pairing()
+{
+
+    // 其他状态：
+    // 1.已经连接或配对: 断开连接
+    if (g_gap_data.state == GAP_STATE_PAIRED || g_gap_data.state == GAP_STATE_CONNECTED) {
+        if (ble_stack_disconnect(g_gap_data.conn_handle) != 0) {
+            LOGE("GAP", "can`t disconect with remote device");
+            return;
+        }
+    } 
+    // 2.正在广播中: 停止广播
+    else if (g_gap_data.state == GAP_STATE_ADVERTISING) {
+        int err = ble_stack_adv_stop();
+        if (err != 0) {
+            LOGE("GAP", "can`t stop advertising, err=%d", err);
+        }
+    }
+    // 3.等待处于空闲状态
+    uint32_t timeout = 0;
+    while (g_gap_data.state != GAP_STATE_IDLE) {
+        aos_msleep(10);
+        timeout += 10;
+        if (timeout  > 1000){
+            LOGE("GAP", "rcu status %d is not allowed to remove bond info", g_gap_data.state);
+            return;
+        }
+    }
+    // 4.清除配对信息
+    if (bond_info.is_bonded) {
+        remove_bond_info();
+    }
+    // 5.发起非直连广播，重启配对过程
+    rcu_ble_start_adversting(ADV_START_PAIRING_KEY);
+}
+

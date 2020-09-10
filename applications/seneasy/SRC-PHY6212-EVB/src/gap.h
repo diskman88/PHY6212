@@ -27,7 +27,7 @@ typedef enum {
     GAP_STATE_STOP_ADVERTISING, /* temporary status of stop adversting */
     GAP_STATE_CONNECTED,        /* connect status but not start paring */
     GAP_STATE_PAIRED,           /* rcu paired success status */
-    GAP_STATE_DISCONNECTING,    /* temporary status of disconnecting */
+    GAP_STATE_DISCONNETED,    /* temporary status of disconnecting */
 }gap_state_t;
 
 typedef struct 
@@ -50,13 +50,21 @@ typedef struct
     dev_addr_t remote_addr;
 }bond_info_t;
 
+typedef enum {
+    ADV_START_POWER_ON,
+    ADV_START_POWER_KEY,
+    ADV_START_TIMEOUT,
+    ADV_START_PAIRING_KEY,
+    ADV_START_RECONNECT,
+}adv_start_reson_t;
+
 
 extern ble_gap_state_t g_gap_data;
 extern bond_info_t bond_info;
 
 bool rcu_ble_init();
 
-void rcu_ble_pairing();
+void rcu_ble_start_adversting(adv_start_reson_t reson);
 
-void rcu_ble_power_key();
+void rcu_ble_clear_pairing();
 #endif
