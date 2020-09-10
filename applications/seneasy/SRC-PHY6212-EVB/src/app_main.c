@@ -103,7 +103,7 @@ void on_msg_key(kscan_key_t vk, int16_t state)
             }
         } else {
             rcu_send_hid_key_release();
-            rcu_led_red_on();
+            rcu_led_red_off();
         }
     }
 }
