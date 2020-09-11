@@ -1,0 +1,509 @@
+<!doctype html>
+<html>
+<head>
+<meta charset='UTF-8'><meta name='viewport' content='width=device-width initial-scale=1'>
+<title>BLE_Factory_Test</title><link href='https://fonts.loli.net/css?family=Open+Sans:400italic,700italic,700,400&subset=latin,latin-ext' rel='stylesheet' type='text/css' /><style type='text/css'>html {overflow-x: initial !important;}:root { --bg-color:#ffffff; --text-color:#333333; --select-text-bg-color:#B5D6FC; --select-text-font-color:auto; --monospace:"Lucida Console",Consolas,"Courier",monospace; }
+html { font-size: 14px; background-color: var(--bg-color); color: var(--text-color); font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+body { margin: 0px; padding: 0px; height: auto; bottom: 0px; top: 0px; left: 0px; right: 0px; font-size: 1rem; line-height: 1.42857; overflow-x: hidden; background: inherit; tab-size: 4; }
+iframe { margin: auto; }
+a.url { word-break: break-all; }
+a:active, a:hover { outline: 0px; }
+.in-text-selection, ::selection { text-shadow: none; background: var(--select-text-bg-color); color: var(--select-text-font-color); }
+#write { margin: 0px auto; height: auto; width: inherit; word-break: normal; overflow-wrap: break-word; position: relative; white-space: normal; overflow-x: visible; padding-top: 40px; }
+#write.first-line-indent p { text-indent: 2em; }
+#write.first-line-indent li p, #write.first-line-indent p * { text-indent: 0px; }
+#write.first-line-indent li { margin-left: 2em; }
+.for-image #write { padding-left: 8px; padding-right: 8px; }
+body.typora-export { padding-left: 30px; padding-right: 30px; }
+.typora-export .footnote-line, .typora-export li, .typora-export p { white-space: pre-wrap; }
+@media screen and (max-width: 500px) {
+  body.typora-export { padding-left: 0px; padding-right: 0px; }
+  #write { padding-left: 20px; padding-right: 20px; }
+  .CodeMirror-sizer { margin-left: 0px !important; }
+  .CodeMirror-gutters { display: none !important; }
+}
+#write li > figure:last-child { margin-bottom: 0.5rem; }
+#write ol, #write ul { position: relative; }
+img { max-width: 100%; vertical-align: middle; }
+button, input, select, textarea { color: inherit; font: inherit; }
+input[type="checkbox"], input[type="radio"] { line-height: normal; padding: 0px; }
+*, ::after, ::before { box-sizing: border-box; }
+#write h1, #write h2, #write h3, #write h4, #write h5, #write h6, #write p, #write pre { width: inherit; }
+#write h1, #write h2, #write h3, #write h4, #write h5, #write h6, #write p { position: relative; }
+p { line-height: inherit; }
+h1, h2, h3, h4, h5, h6 { break-after: avoid-page; break-inside: avoid; orphans: 2; }
+p { orphans: 4; }
+h1 { font-size: 2rem; }
+h2 { font-size: 1.8rem; }
+h3 { font-size: 1.6rem; }
+h4 { font-size: 1.4rem; }
+h5 { font-size: 1.2rem; }
+h6 { font-size: 1rem; }
+.html-math-block, .html-rawblock, h1, h2, h3, h4, h5, h6, p { margin-top: 1rem; margin-bottom: 1rem; }
+.hidden { display: none; }
+.html-blockmeta { color: rgb(204, 204, 204); font-weight: 700; font-style: italic; }
+a { cursor: pointer; }
+sup.html-footnote { padding: 2px 4px; background-color: rgba(238, 238, 238, 0.7); color: rgb(85, 85, 85); border-radius: 4px; cursor: pointer; }
+sup.html-footnote a, sup.html-footnote a:hover { color: inherit; text-transform: inherit; text-decoration: inherit; }
+#write input[type="checkbox"] { cursor: pointer; width: inherit; height: inherit; }
+figure { overflow-x: auto; margin: 1.2em 0px; max-width: calc(100% + 16px); padding: 0px; }
+figure > table { margin: 0px !important; }
+tr { break-inside: avoid; break-after: auto; }
+thead { display: table-header-group; }
+table { border-collapse: collapse; border-spacing: 0px; width: 100%; overflow: auto; break-inside: auto; text-align: left; }
+table.html-table td { min-width: 32px; }
+.CodeMirror-gutters { border-right: 0px; background-color: inherit; }
+.CodeMirror-linenumber { user-select: none; }
+.CodeMirror { text-align: left; }
+.CodeMirror-placeholder { opacity: 0.3; }
+.CodeMirror pre { padding: 0px 4px; }
+.CodeMirror-lines { padding: 0px; }
+div.hr:focus { cursor: none; }
+#write pre { white-space: pre-wrap; }
+#write.fences-no-line-wrapping pre { white-space: pre; }
+#write pre.ty-contain-cm { white-space: normal; }
+.CodeMirror-gutters { margin-right: 4px; }
+.html-fences { font-size: 0.9rem; display: block; break-inside: avoid; text-align: left; overflow: visible; white-space: pre; background: inherit; position: relative !important; }
+.html-diagram-panel { width: 100%; margin-top: 10px; text-align: center; padding-top: 0px; padding-bottom: 8px; overflow-x: auto; }
+#write .html-fences.mock-cm { white-space: pre-wrap; }
+.html-fences.html-fences-with-lineno { padding-left: 0px; }
+#write.fences-no-line-wrapping .html-fences.mock-cm { white-space: pre; overflow-x: auto; }
+.html-fences.mock-cm.html-fences-with-lineno { padding-left: 8px; }
+.CodeMirror-line, twitterwidget { break-inside: avoid; }
+.footnotes { opacity: 0.8; font-size: 0.9rem; margin-top: 1em; margin-bottom: 1em; }
+.footnotes + .footnotes { margin-top: 0px; }
+.html-reset { margin: 0px; padding: 0px; border: 0px; outline: 0px; vertical-align: top; background: 0px 0px; text-decoration: none; text-shadow: none; float: none; position: static; width: auto; height: auto; white-space: nowrap; cursor: inherit; -webkit-tap-highlight-color: transparent; line-height: normal; font-weight: 400; text-align: left; box-sizing: content-box; direction: ltr; }
+li div { padding-top: 0px; }
+blockquote { margin: 1rem 0px; }
+li .mathjax-block, li p { margin: 0.5rem 0px; }
+li { margin: 0px; position: relative; }
+blockquote > :last-child { margin-bottom: 0px; }
+blockquote > :first-child, li > :first-child { margin-top: 0px; }
+.footnotes-area { color: rgb(136, 136, 136); margin-top: 0.714rem; padding-bottom: 0.143rem; white-space: normal; }
+#write .footnote-line { white-space: pre-wrap; }
+@media print {
+  body, html { border: 1px solid transparent; height: 99%; break-after: avoid; break-before: avoid; }
+  #write { margin-top: 0px; padding-top: 0px; border-color: transparent !important; }
+  .typora-export * { -webkit-print-color-adjust: exact; }
+  html.blink-to-pdf { font-size: 13px; }
+  .typora-export #write { padding-left: 32px; padding-right: 32px; padding-bottom: 0px; break-after: avoid; }
+  .typora-export #write::after { height: 0px; }
+}
+.footnote-line { margin-top: 0.714em; font-size: 0.7em; }
+a img, img a { cursor: pointer; }
+pre.html-meta-block { font-size: 0.8rem; min-height: 0.8rem; white-space: pre-wrap; background: rgb(204, 204, 204); display: block; overflow-x: hidden; }
+p > .html-image:only-child:not(.html-img-error) img, p > img:only-child { display: block; margin: auto; }
+p > .html-image:only-child { display: inline-block; width: 100%; }
+#write .MathJax_Display { margin: 0.8em 0px 0px; }
+.html-math-block { width: 100%; }
+.html-math-block:not(:empty)::after { display: none; }
+[contenteditable="true"]:active, [contenteditable="true"]:focus, [contenteditable="false"]:active, [contenteditable="false"]:focus { outline: 0px; box-shadow: none; }
+.html-task-list-item { position: relative; list-style-type: none; }
+.task-list-item.html-task-list-item { padding-left: 0px; }
+.html-task-list-item > input { position: absolute; top: 0px; left: 0px; margin-left: -1.2em; margin-top: calc(1em - 10px); border: none; }
+.math { font-size: 1rem; }
+.html-toc { min-height: 3.58rem; position: relative; font-size: 0.9rem; border-radius: 10px; }
+.html-toc-content { position: relative; margin-left: 0px; }
+.html-toc-content::after, .html-toc::after { display: none; }
+.html-toc-item { display: block; color: rgb(65, 131, 196); }
+.html-toc-item a { text-decoration: none; }
+.html-toc-inner:hover { text-decoration: underline; }
+.html-toc-inner { display: inline-block; cursor: pointer; }
+.html-toc-h1 .html-toc-inner { margin-left: 0px; font-weight: 700; }
+.html-toc-h2 .html-toc-inner { margin-left: 2em; }
+.html-toc-h3 .html-toc-inner { margin-left: 4em; }
+.html-toc-h4 .html-toc-inner { margin-left: 6em; }
+.html-toc-h5 .html-toc-inner { margin-left: 8em; }
+.html-toc-h6 .html-toc-inner { margin-left: 10em; }
+@media screen and (max-width: 48em) {
+  .html-toc-h3 .html-toc-inner { margin-left: 3.5em; }
+  .html-toc-h4 .html-toc-inner { margin-left: 5em; }
+  .html-toc-h5 .html-toc-inner { margin-left: 6.5em; }
+  .html-toc-h6 .html-toc-inner { margin-left: 8em; }
+}
+a.html-toc-inner { font-size: inherit; font-style: inherit; font-weight: inherit; line-height: inherit; }
+.footnote-line a:not(.reversefootnote) { color: inherit; }
+.html-attr { display: none; }
+.html-fn-count::after { content: "."; }
+code, pre, samp, tt { font-family: var(--monospace); }
+kbd { margin: 0px 0.1em; padding: 0.1em 0.6em; font-size: 0.8em; color: rgb(36, 39, 41); background: rgb(255, 255, 255); border: 1px solid rgb(173, 179, 185); border-radius: 3px; box-shadow: rgba(12, 13, 14, 0.2) 0px 1px 0px, rgb(255, 255, 255) 0px 0px 0px 2px inset; white-space: nowrap; vertical-align: middle; }
+.html-comment { color: rgb(162, 127, 3); opacity: 0.8; font-family: var(--monospace); }
+code { text-align: left; vertical-align: initial; }
+a.html-print-anchor { white-space: pre !important; border-width: initial !important; border-style: none !important; border-color: initial !important; display: inline-block !important; position: absolute !important; width: 1px !important; right: 0px !important; outline: 0px !important; background: 0px 0px !important; text-decoration: initial !important; text-shadow: initial !important; }
+.html-inline-math .MathJax_SVG .noError { display: none !important; }
+.html-for-mac .inline-math-svg .MathJax_SVG { vertical-align: 0.2px; }
+.html-math-block .MathJax_SVG_Display { text-align: center; margin: 0px; position: relative; text-indent: 0px; max-width: none; max-height: none; min-height: 0px; min-width: 100%; width: auto; overflow-y: hidden; display: block !important; }
+.MathJax_SVG_Display, .html-inline-math .MathJax_SVG_Display { width: auto; margin: inherit; display: inline-block !important; }
+.MathJax_SVG .MJX-monospace { font-family: var(--monospace); }
+.MathJax_SVG .MJX-sans-serif { font-family: sans-serif; }
+.MathJax_SVG { display: inline; font-style: normal; font-weight: 400; line-height: normal; zoom: 90%; text-indent: 0px; text-align: left; text-transform: none; letter-spacing: normal; word-spacing: normal; overflow-wrap: normal; white-space: nowrap; float: none; direction: ltr; max-width: none; max-height: none; min-width: 0px; min-height: 0px; border: 0px; padding: 0px; margin: 0px; }
+.MathJax_SVG * { transition: none 0s ease 0s; }
+.MathJax_SVG_Display svg { vertical-align: middle !important; margin-bottom: 0px !important; margin-top: 0px !important; }
+.os-windows.monocolor-emoji .html-emoji { font-family: "Segoe UI Symbol", sans-serif; }
+.html-diagram-panel > svg { max-width: 100%; }
+[lang="flow"] svg, [lang="mermaid"] svg { max-width: 100%; height: auto; }
+[lang="mermaid"] .node text { font-size: 1rem; }
+table tr th { border-bottom: 0px; }
+video { max-width: 100%; display: block; margin: 0px auto; }
+iframe { max-width: 100%; width: 100%; border: none; }
+.highlight td, .highlight tr { border: 0px; }
+svg[id^="mermaidChart"] { line-height: 1em; }
+mark { background: rgb(255, 255, 0); color: rgb(0, 0, 0); }
+.html-html-inline .html-plain, .html-html-inline strong, mark .html-inline-math, mark strong { color: inherit; }
+mark .html-meta { color: rgb(0, 0, 0); opacity: 0.3 !important; }
+
+
+:root {
+    --side-bar-bg-color: #fafafa;
+    --control-text-color: #777;
+}
+
+@include-when-export url(https://fonts.loli.net/css?family=Open+Sans:400italic,700italic,700,400&subset=latin,latin-ext);
+
+html {
+    font-size: 16px;
+}
+
+body {
+    font-family: "Open Sans","Clear Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+    color: rgb(51, 51, 51);
+    line-height: 1.6;
+}
+
+#write {
+    max-width: 860px;
+  	margin: 0 auto;
+  	padding: 30px;
+    padding-bottom: 100px;
+}
+#write > ul:first-child,
+#write > ol:first-child{
+    margin-top: 30px;
+}
+
+a {
+    color: #4183C4;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    position: relative;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    font-weight: bold;
+    line-height: 1.4;
+    cursor: text;
+}
+h1:hover a.anchor,
+h2:hover a.anchor,
+h3:hover a.anchor,
+h4:hover a.anchor,
+h5:hover a.anchor,
+h6:hover a.anchor {
+    text-decoration: none;
+}
+h1 tt,
+h1 code {
+    font-size: inherit;
+}
+h2 tt,
+h2 code {
+    font-size: inherit;
+}
+h3 tt,
+h3 code {
+    font-size: inherit;
+}
+h4 tt,
+h4 code {
+    font-size: inherit;
+}
+h5 tt,
+h5 code {
+    font-size: inherit;
+}
+h6 tt,
+h6 code {
+    font-size: inherit;
+}
+h1 {
+    padding-bottom: .3em;
+    font-size: 2.25em;
+    line-height: 1.2;
+    border-bottom: 1px solid #eee;
+}
+h2 {
+   padding-bottom: .3em;
+    font-size: 1.75em;
+    line-height: 1.225;
+    border-bottom: 1px solid #eee;
+}
+h3 {
+    font-size: 1.5em;
+    line-height: 1.43;
+}
+h4 {
+    font-size: 1.25em;
+}
+h5 {
+    font-size: 1em;
+}
+h6 {
+   font-size: 1em;
+    color: #777;
+}
+p,
+blockquote,
+ul,
+ol,
+dl,
+table{
+    margin: 0.8em 0;
+}
+li>ol,
+li>ul {
+    margin: 0 0;
+}
+hr {
+    height: 2px;
+    padding: 0;
+    margin: 16px 0;
+    background-color: #e7e7e7;
+    border: 0 none;
+    overflow: hidden;
+    box-sizing: content-box;
+}
+
+li p.first {
+    display: inline-block;
+}
+ul,
+ol {
+    padding-left: 30px;
+}
+ul:first-child,
+ol:first-child {
+    margin-top: 0;
+}
+ul:last-child,
+ol:last-child {
+    margin-bottom: 0;
+}
+blockquote {
+    border-left: 4px solid #dfe2e5;
+    padding: 0 15px;
+    color: #777777;
+}
+blockquote blockquote {
+    padding-right: 0;
+}
+table {
+    padding: 0;
+    word-break: initial;
+}
+table tr {
+    border-top: 1px solid #dfe2e5;
+    margin: 0;
+    padding: 0;
+}
+table tr:nth-child(2n),
+thead {
+    background-color: #f8f8f8;
+}
+table tr th {
+    font-weight: bold;
+    border: 1px solid #dfe2e5;
+    border-bottom: 0;
+    margin: 0;
+    padding: 6px 13px;
+}
+table tr td {
+    border: 1px solid #dfe2e5;
+    margin: 0;
+    padding: 6px 13px;
+}
+table tr th:first-child,
+table tr td:first-child {
+    margin-top: 0;
+}
+table tr th:last-child,
+table tr td:last-child {
+    margin-bottom: 0;
+}
+
+.CodeMirror-lines {
+    padding-left: 4px;
+}
+
+.code-tooltip {
+    box-shadow: 0 1px 1px 0 rgba(0,28,36,.3);
+    border-top: 1px solid #eef2f2;
+}
+
+.html-fences,
+code,
+tt {
+    border: 1px solid #e7eaed;
+    background-color: #f8f8f8;
+    border-radius: 3px;
+    padding: 0;
+    padding: 2px 4px 0px 4px;
+    font-size: 0.9em;
+}
+
+code {
+    background-color: #f3f4f4;
+    padding: 0 2px 0 2px;
+}
+
+.html-fences {
+    margin-bottom: 15px;
+    margin-top: 15px;
+    padding-top: 8px;
+    padding-bottom: 6px;
+}
+
+
+.html-task-list-item > input {
+  margin-left: -1.3em;
+}
+
+@media print {
+    html {
+        font-size: 13px;
+    }
+    table,
+    pre {
+        page-break-inside: avoid;
+    }
+    pre {
+        word-wrap: break-word;
+    }
+}
+
+.html-fences {
+	background-color: #f8f8f8;
+}
+#write pre.html-meta-block {
+	padding: 1rem;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f7f7f7;
+    border: 0;
+    border-radius: 3px;
+    color: #777777;
+    margin-top: 0 !important;
+}
+
+.mathjax-block>.code-tooltip {
+	bottom: .375rem;
+}
+
+.html-mathjax-midline {
+    background: #fafafa;
+}
+
+#write>h3.html-focus:before{
+	left: -1.5625rem;
+	top: .375rem;
+}
+#write>h4.html-focus:before{
+	left: -1.5625rem;
+	top: .285714286rem;
+}
+#write>h5.html-focus:before{
+	left: -1.5625rem;
+	top: .285714286rem;
+}
+#write>h6.html-focus:before{
+	left: -1.5625rem;
+	top: .285714286rem;
+}
+.html-image>.html-meta {
+    /*border: 1px solid #ddd;*/
+    border-radius: 3px;
+    padding: 2px 0px 0px 4px;
+    font-size: 0.9em;
+    color: inherit;
+}
+
+.html-tag {
+    color: #a7a7a7;
+    opacity: 1;
+}
+
+.html-toc { 
+    margin-top:20px;
+    padding-bottom:20px;
+}
+
+.sidebar-tabs {
+    border-bottom: none;
+}
+
+#typora-quick-open {
+    border: 1px solid #ddd;
+    background-color: #f8f8f8;
+}
+
+#typora-quick-open-item {
+    background-color: #FAFAFA;
+    border-color: #FEFEFE #e5e5e5 #e5e5e5 #eee;
+    border-style: solid;
+    border-width: 1px;
+}
+
+/** focus mode */
+.on-focus-mode blockquote {
+    border-left-color: rgba(85, 85, 85, 0.12);
+}
+
+header, .context-menu, .megamenu-content, footer{
+    font-family: "Segoe UI", "Arial", sans-serif;
+}
+
+.file-node-content:hover .file-node-icon,
+.file-node-content:hover .file-node-open-state{
+    visibility: visible;
+}
+
+.mac-seamless-mode #typora-sidebar {
+    background-color: #fafafa;
+    background-color: var(--side-bar-bg-color);
+}
+
+.html-lang {
+    color: #b4654d;
+}
+
+.html-for-mac .context-menu {
+    --item-hover-bg-color: #E6F0FE;
+}
+
+.html-notification .btn {
+    border: 0;
+}
+
+.dropdown-menu .divider {
+    border-color: #e5e5e5;
+}
+
+.ty-preferences .window-content {
+    background-color: #fafafa;
+}
+
+.ty-preferences .nav-group-item.active {
+    color: white;
+    background: #999;
+}
+
+
+</style>
+</head>
+<body class='typora-export os-windows' >
+<div  id='write'  class = 'is-node'><h1><a name="title--ble产测说明" class=.html-header-anchor"></a><span>Title:  BLE产测说明</span></h1><h1><a name="1-简介" class=.html-header-anchor"></a><span>1. 简介</span></h1><h2><a name="11说明" class=.html-header-anchor"></a><span>1.1.说明</span></h2><ul><li><p><span>本文介绍BLE产测，涉及烧录工位，RF及功耗工位两部分。</span></p></li><li><p><span>产测之前需要下载剑池产测工具安装包及工位程序，链接如下：</span></p><p><a href='https://occ.t-head.cn/community/download?id=3788263970511589376'><span>工具链接</span></a><span>   </span></p></li><li><p><span>工位程序文件夹需要复制到剑池产测工具安装目录下</span></p></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_filefolder.png" referrerpolicy="no-referrer" alt="image-20200903193301735"></p><ul><li><p><span>RF及功耗测试工位功耗测试需要安装IO程序库套件，链接如下：</span></p><p><a href='https://www.keysight.com/main/software.jspx?cc=CN&amp;lc=chi&amp;nid=-536900526.697048.02&amp;id=2175637&amp;pageMode=CV'><span>IO程序库套件</span></a><span>    </span></p></li><li><p><span>RF及功耗工位测试，DUT需要事先烧录支持产测功能的固件，参考</span><a href='dut_test.html'><span>dut_test.html</span></a><span> 。</span></p></li></ul><h1><a name="2烧录工位" class=.html-header-anchor"></a><span>2.烧录工位</span></h1><h2><a name="21框图" class=.html-header-anchor"></a><span>2.1.框图</span></h2><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_isp.png" referrerpolicy="no-referrer" alt="image-20200831191945964"></p><p><span>说明：</span></p><ul><li><p><span>烧录时DUT 需要拉高TM管脚，同时保证P24和P25拉低</span></p></li><li><p><span>最大支持八路</span></p></li><li><p><span>DUT通过串口连接（基于USB转串口芯片CP210x，串口驱动版本6.7.0.0，或其他支持1.5M速率），链接如下：</span></p><p><a href='https://www.silabs.com/products/development-tools/software/usb-to-uart-bridge-vcp-drivers'><span>串口驱动</span></a></p><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_uart_driver.png" referrerpolicy="no-referrer" alt="image-20200904130252989"></p></li><li><p><span>烧录工位支持烧录固件和MAC，MAC需用户配置</span></p></li></ul><h2><a name="22配置" class=.html-header-anchor"></a><span>2.2.配置</span></h2><h3><a name="221镜像配置" class=.html-header-anchor"></a><span>2.2.1.镜像配置</span></h3><ul><li><span>把烧录镜像total_image.hexf放到安装目录BLE_Production/Ble_Isp文件夹下</span></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_isp_file.png" referrerpolicy="no-referrer" alt="image-20200903115838519"></p><h3><a name="222打开剑池产测工具" class=.html-header-anchor"></a><span>2.2.2.打开剑池产测工具</span></h3><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_open.png" referrerpolicy="no-referrer" alt="image-20200820214458855"></p><h3><a name="223选择配置文件" class=.html-header-anchor"></a><span>2.2.3.选择配置文件</span></h3><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_isp_auto_config.png" referrerpolicy="no-referrer" alt="image-20200831155624317"></p><p><span>	</span><span>注:生产时用户需要把CB6212_productInfo.csv文件替换成自己的生产数据并重新打包。</span></p><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_isp_pickin.png" referrerpolicy="no-referrer" alt="image-20200831143923929"></p><h3><a name="224设置" class=.html-header-anchor"></a><span>2.2.4.设置</span></h3><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_isp_setup.png" referrerpolicy="no-referrer" alt="image-20200903113352991"></p><p><span>说明：</span></p><ul><li><span>路数可选1-8路</span></li><li><span>串口号依据实际修改</span></li><li><span>保留烧录保留区地址的Flash数据不会擦除</span></li><li><span>卡位在自动烧录使用，手动无需选择该项</span></li></ul><h2><a name="23执行" class=.html-header-anchor"></a><span>2.3.执行</span></h2><ul><li><span>开始任一路或开始所有测试</span></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_isp_one.png" referrerpolicy="no-referrer" alt="image-20200831144641110"></p><ul><li><span>换板自动检测并自动执行</span></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_isp_autorun.png" referrerpolicy="no-referrer" alt="image-20200831144910701"></p><p><span>说明：</span></p><ul><li><span>已烧录过的板子再次烧录提示请换新板子</span></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_change_newboard.png" referrerpolicy="no-referrer" alt="image-20200831145043445"></p><h1><a name="3rf及功耗工位测试" class=.html-header-anchor"></a><span>3.RF及功耗工位测试</span></h1><h2><a name="31框图及流程图" class=.html-header-anchor"></a><span>3.1.框图及流程图</span></h2><h3><a name="311框图" class=.html-header-anchor"></a><span>3.1.1.框图</span></h3><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_flow_show.png" referrerpolicy="no-referrer" alt="image-20200907000343275"></p><p><span>说明：</span></p><ul><li><span>BLE产测集成RF测试和功耗测试。</span></li><li><span>剑池产测工具通过控制金机和DUT(待测设备)进行RF测试，控制DUT和程控万用表进行功耗测试。</span></li><li><span>功耗测试需要程控万用表读取DUT电流数据，电流表型号是</span><strong><em><span>DM3058</span></em></strong><span>。</span></li><li><span>测量功耗时建议选择稳压电源对DUT进行供电，DM3058程控万用表串联到DUT供电环路。</span></li><li><span>金机可采用串口单独供电。</span></li></ul><h3><a name="312流程图" class=.html-header-anchor"></a><span>3.1.2.流程图</span></h3><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_picture_flow.png" referrerpolicy="no-referrer" alt="image-20200904140547672"></p><p><span>说明：</span></p><ul><li><span>本工位按照功耗校准，工位配置，RF及功耗测试执行测试</span></li><li><span>RF和功耗测试可以分开执行，不进行功耗测试无需进行功耗校准</span></li></ul><h2><a name="32配置" class=.html-header-anchor"></a><span>3.2.配置</span></h2><h3><a name="321打开剑池产测工具" class=.html-header-anchor"></a><span>3.2.1.打开剑池产测工具</span></h3><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_open.png" referrerpolicy="no-referrer" alt="image-20200820214458855"></p><h3><a name="322加载工位配置文件" class=.html-header-anchor"></a><span>3.2.2.加载工位配置文件</span></h3><ul><li><span>加载配置文件FACTORY_RF_POWER_V1.1.3</span></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_config_file.png" referrerpolicy="no-referrer" alt="image-20200903140249996"></p><h3><a name="323设置" class=.html-header-anchor"></a><span>3.2.3.设置</span></h3><p><span>设置界面如下：</span></p><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_rf_power_set.png" referrerpolicy="no-referrer" alt="image-20200904114029414"></p><h4><a name="3231功耗校准" class=.html-header-anchor"></a><span>3.2.3.1.功耗校准</span></h4><ul><li><p><span>准备样机</span></p><p><span>准备三个产品板并烧录DUT固件（工程目录applications\bluetooth\dut）。</span></p><p><span>根据3.1.1所述框图给DUT接线。</span></p><p><span>万用表串联到DUT供电环路。</span></p><p><span>打开串口工具连接DUT。</span></p><p><span>串口输入指令AT+SLEEP让DUT进入休眠。</span></p></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_.html_sleep.png" referrerpolicy="no-referrer" alt="image-20200904142229195"></p><p><span>		</span><span>拔掉串口，从万用表读出当前电流值。</span></p><p><span>		</span><span>依次读出三个样机的电流值并记录下来。</span></p><p><span>		</span><span>注意：</span></p><p><span>			</span><span>电流值需要跟产品板一一对应。</span></p><ul><li><p><span>获取DUT串口</span></p><p><span>通过计算机设备管理器获取,可通过拔插串口确定。</span></p></li><li><p><span>测量三个样机在sleep模式下的电流，对应写入样机X电流框内</span></p></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_power_cal.png" referrerpolicy="no-referrer" alt="image-20200904114343441"></p><p><span> </span><span>	</span><span>注意：由于Sleep功耗测试对电流较敏感，需要用样机电流进行校准，样机电流单位uA。</span></p><ul><li><p><span>获取电源ID</span></p><p><span>IO程序库套件安装好后，通过Keysight IO Libraries Suite 的VISA Address项获取</span></p></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_io_library.png" referrerpolicy="no-referrer" alt="image-20200903181332013"></p><ul><li><span>写入电源ID，如USB0::0x2A8D::0x0F02::MY56003881::0::INSTR</span></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_power_id.png" referrerpolicy="no-referrer" alt="image-20200904114419661"></p><ul><li><p><span>执行项选择功耗校准</span></p><p><span>用样机校准夹具及串口漏电，只有在手动模式下可以校准。</span></p></li><li><p><span>放入样机1并点击确定</span></p></li><li><p><span>根据提示依次放入样机2和3并点击确定，直到校准完毕</span></p></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_golden_test.png" referrerpolicy="no-referrer" alt="image-20200904114514887"></p><h4><a name="3232其他设置" class=.html-header-anchor"></a><span>3.2.3.2.其他设置</span></h4><p><span>按如下顺序调整配置：</span></p><ul><li><p><span>金机串口</span></p><p><span>通过计算机设备管理器获取,可通过拔插串口确定。</span></p></li><li><p><span>频偏上限</span></p><p><span>频偏测量高门限，取值为有符号十进制值。单位Khz。</span></p></li><li><p><span>频偏下限</span></p><p><span>频偏测量低门限，取值为有符号十进制值。单位Khz。。</span></p></li><li><p><span>线损</span></p><p><span>衰减器衰减和射频电缆线损之和，如衰减器设置值88dB,线损是4dB，则该项填写92，需依据实际修改。</span></p></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_set_up_rfpower.png" referrerpolicy="no-referrer" alt="image-20200904114626160"></p><ul><li><p><span>功率上限</span></p><p><span>DUT发送功率判断门限，取值为有符号十进制值，单位dBm。</span></p></li><li><p><span>功率下限</span></p><p><span>同上。</span></p></li><li><p><span>收包上限</span></p><p><span>指定衰减下，DUT接收包判别高门限，由于金机最大发包1000包，此处写1000。</span></p></li><li><p><span>收包下限</span></p><p><span>DUT接收包判别低门限，默认700。</span></p></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_rfpower_second_config.png" referrerpolicy="no-referrer" alt="image-20200904114750227"></p><h4><a name="3233选择执行项" class=.html-header-anchor"></a><span>3.2.3.3.选择执行项</span></h4><p><span>选择如下执行项：</span></p><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_execute_choice.png" referrerpolicy="no-referrer" alt="image-20200904114902838"></p><p><span>执行项说明：</span></p><ul><li><p><span>初始化配置</span></p><p><span>DUT和金机配置信息读取，是必选项。</span></p></li><li><p><span>频偏校准</span></p><p><span>测量DUT channel 19的频偏值并写入校准值到DUT。</span></p></li><li><p><span>TX发送功率和频偏</span></p><p><span>测量DUT校准后频偏和发送功率，可选择0，19，38三个channel。</span></p></li><li><p><span>接收灵敏度</span></p><p><span>金机发送1000个包，DUT接收包数在门限内通过。可选0，19，38三个channel。</span></p></li><li><p><span>功耗测试</span></p><p><span>测量正常工作模式，接收模式和sleep模式下的电流。</span></p></li><li><p><span>卡位</span></p><p><span>测试完毕后，等待操作者更换DUT。在自动模式下选择该项，如选择功耗测试可不选卡位(功耗测试自带卡位)。</span></p></li></ul><h2><a name="33执行" class=.html-header-anchor"></a><span>3.3.执行</span></h2><ul><li><span>开始测试</span></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_execute_rfpower.png" referrerpolicy="no-referrer" alt="image-20200903192400053"></p><ul><li><span>换板并手动点击开始所有测试进行下次测试</span></li></ul><p><img src="../../../assets/zh-cn/bluetooth/dut_test/dut_next_test.png" referrerpolicy="no-referrer" alt="image-20200821143335083"></p><p>&nbsp;</p><h2><a name="34注意事项" class=.html-header-anchor"></a><span>3.4.注意事项</span></h2><ul><li><span>耦合测试需要把DUT和金机放到屏蔽箱内。</span></li><li><span>传导测试如果有多个测试工位，建议测试工位之间至少间隔两米。</span></li><li><span>如果DUT跟金机之间射频衰减比较大，测试功率可能会有偏差，可以通过小批量测试后，确定发送功率门限值。</span></li></ul><p>&nbsp;</p></div>
+</body>
+</html>
