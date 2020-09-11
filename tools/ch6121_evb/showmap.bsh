@@ -42,7 +42,8 @@ COUNT=0
 SKIP=0
 
 ROM=0
-RAM=0
+RAM=18432
+RAMSTART="1fff0000"
 
 for str in $LINE_TOTAL; do
 	if [ $COUNT -eq 0 ]; then
@@ -57,7 +58,7 @@ for str in $LINE_TOTAL; do
 		COUNT=1
 	elif [ $COUNT -eq 1 ]; then
 		if [ $SKIP -eq 0 ]; then
-			if [ $((16#$ADDR)) -gt $((16#"1fff0000")) ]; then
+			if [ $((16#$ADDR)) -gt $((16#$RAMSTART)) ]; then
 				RAM=$(($RAM+16#$str))
 			else
 				ROM=$(($ROM+16#$str))

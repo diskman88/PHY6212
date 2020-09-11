@@ -61,6 +61,7 @@ uint8_t g_channel;
 static uint8_t  adc_cal_read_flag = 0;
 static uint16_t adc_cal_postive = 0x0fff;
 static uint16_t adc_cal_negtive = 0x0fff;
+static uint32_t adc_data[MAX_ADC_SAMPLE_SIZE];
 
 const static GPIO_Pin_e s_pinmap[ADC_CH_NUM] = {
     GPIO_DUMMY, //ADC_CH0 =0,
@@ -314,13 +315,12 @@ int phy_adc_start(void)
 }
 
 
-int phy_adc_start_int_dis(void)
+static int phy_adc_start_int_dis(void)
 {
     mAdc_Ctx.enable = TRUE;
     AP_PCRM->ANA_CTL |= BIT(3);
 
     return PPlus_SUCCESS;
-
 }
 
 int phy_adc_config_channel_auto(uint8_t channel, adc_Cfg_t cfg, adc_event_cb_t evt_handler)
@@ -443,6 +443,7 @@ int phy_adc_stop(void)
  *
  * @return      ADC value
  **************************************************************************************/
+/*
 float phy_adc_value(uint16_t *buf, uint8_t size, bool high_resol, bool diff_mode)
 {
     uint8_t i;
@@ -470,7 +471,7 @@ float phy_adc_value(uint16_t *buf, uint8_t size, bool high_resol, bool diff_mode
     }
 
     return result;
-}
+}*/
 
 static void phy_adc_load_calibration_value(void)
 {
@@ -486,7 +487,7 @@ int phy_adc_value_cal(adc_CH_t ch, uint32_t *buf, uint32_t size, bool high_resol
 {
     uint32_t i;
     int adc_sum = 0;
-    float result = 0.0;
+    int result = 0;
 
     for (i = 0; i < size; i++) {
         adc_sum += (buf[i] & 0xfff);
@@ -497,25 +498,26 @@ int phy_adc_value_cal(adc_CH_t ch, uint32_t *buf, uint32_t size, bool high_resol
     result = (1000 * adc_sum) / size;
 
     if ((adc_cal_postive != 0xfff) && (adc_cal_negtive != 0xfff)) {
-        float delta = ((int)(adc_cal_postive - adc_cal_negtive)) / 2.0;
+        int delta = (1000 * (adc_cal_postive - adc_cal_negtive)) / 2;
+        int caldata = (adc_cal_postive + adc_cal_negtive);
 
         if (ch & 0x01) {
-            result = (diff_mode) ? ((result - 2048 - delta) * 2 / (adc_cal_postive + adc_cal_negtive))
-                     : ((result + delta) / (adc_cal_postive + adc_cal_negtive));
+            result = (diff_mode) ? ((result - 2048 * 1000 - delta) * 2 / caldata)
+                     : ((result + delta) / caldata);
         } else {
-            result = (diff_mode) ? ((result - 2048 - delta) * 2 / (adc_cal_postive + adc_cal_negtive))
-                     : ((result - delta) / (adc_cal_postive + adc_cal_negtive));
+            result = (diff_mode) ? ((result - 2048 * 1000 - delta) * 2 / caldata)
+                     : ((result - delta) / caldata);
         }
 
     } else {
-        result = (diff_mode) ? (result / 2048 - 1) : (result / 4096);
+        result = (diff_mode) ? (result / 2048 - 1000) : (result / 4096);
     }
 
     if (high_resol == FALSE) {
         result = result * 4;
     }
 
-    return result;
+    return (int)(result);
 }
 
 
@@ -707,28 +709,30 @@ int32_t drv_adc_config(adc_handle_t handle, adc_conf_t *config)
 
     if (!config->enable_link_internal_voltage) {
         ret = phy_adc_config_channel_auto(adc_priv->channel, adc_priv->cfg, adc_priv->evt_handler);
+
         if (ret != 0) {
             printf("%s, %d error, %d\n", __func__, __LINE__, ret);
             return -1;
         }
     } else {
-        if(((1 << config->link_internal_voltage_channel) & adc_priv->channel) == 0) {
+        if (((1 << config->link_internal_voltage_channel) & adc_priv->channel) == 0) {
             return ADC_PARAM_INVALID;
         }
 
         GPIO_Pin_e pin;
         pin = s_pinmap[config->link_internal_voltage_channel];
 
-        phy_gpio_cfg_analog_io(pin,Bit_DISABLE);
+        phy_gpio_cfg_analog_io(pin, Bit_DISABLE);
         phy_gpio_write(pin, 1);
 
         ret = phy_adc_config_channel_auto(adc_priv->channel, adc_priv->cfg, adc_priv->evt_handler);
+
         if (ret != 0) {
             printf("%s, %d error\n", __func__, __LINE__);
             return -1;
         }
 
-        phy_gpio_cfg_analog_io(pin,Bit_DISABLE);
+        phy_gpio_cfg_analog_io(pin, Bit_DISABLE);
     }
 
     return 0;
@@ -784,6 +788,7 @@ static int read_data_one_channel_n(adc_handle_t handle, uint32_t *data, uint32_t
     ck_adc_priv_t *adc_priv = handle;
     uint8_t channel_mask = adc_priv->channel;
     int ch = 2;
+    uint32_t fdata[1];
 
     while (ch < 8) {
         if (channel_mask & BIT(ch)) {
@@ -800,15 +805,16 @@ static int read_data_one_channel_n(adc_handle_t handle, uint32_t *data, uint32_t
             wait_data_ready(adc_priv->sampling_frequency, ADC_FIFO_LENGTH, 1);
         }
 
-        data[i] = (uint16_t)(read_reg(ADC_CH_BASE + (ch * 0x80) + ((ch + 2) * 4)) & 0xfff);
-
+        fdata[0] = (uint16_t)(read_reg(ADC_CH_BASE + (ch * 0x80) + ((ch + 2) * 4)) & 0xfff);
+        data[i] = (uint32_t)(phy_adc_value_cal(ch, fdata, 1, FALSE, FALSE));
         i++;
 
         if (i >= num) {
             break;
         }
 
-        data[i] = (uint16_t)((read_reg(ADC_CH_BASE + (ch * 0x80) + ((ch + 2) * 4)) >> 16) & 0xfff);
+        fdata[0] = (uint16_t)((read_reg(ADC_CH_BASE + (ch * 0x80) + ((ch + 2) * 4)) >> 16) & 0xfff);
+        data[i] = (uint32_t)(phy_adc_value_cal(ch, fdata, 1, FALSE, FALSE));
         i++;
     }
 
@@ -818,13 +824,16 @@ static int read_data_one_channel_n(adc_handle_t handle, uint32_t *data, uint32_t
 static int read_multiple_channel_once(uint32_t channel_mask, uint32_t *data, uint32_t *buf_len)
 {
     int i = 0, j = 0;
+    uint32_t fdata[1];
 
     while (i < 8) {
         if (channel_mask & BIT(i)) {
             if (j % 2) {
-                data[j] = (uint16_t)(read_reg(ADC_CH_BASE + (i * 0x80) + ((i + 2) * 4)) & 0xfff);
+                fdata[0] = (uint16_t)(read_reg(ADC_CH_BASE + (i * 0x80) + ((i + 2) * 4)) & 0xfff);
+                data[j] = (uint32_t)(phy_adc_value_cal(i, fdata, 1, FALSE, FALSE));
             } else {
-                data[j] = (uint16_t)((read_reg(ADC_CH_BASE + (i * 0x80) + ((i + 2) * 4)) >> 16) & 0xfff);
+                fdata[0] = (uint16_t)((read_reg(ADC_CH_BASE + (i * 0x80) + ((i + 2) * 4)) >> 16) & 0xfff);
+                data[j] = (uint32_t)(phy_adc_value_cal(i, fdata, 1, FALSE, FALSE));
             }
 
             j++;
@@ -945,3 +954,66 @@ int32_t drv_adc_power_control(adc_handle_t handle, csi_power_stat_e state)
         return ERR_ADC(DRV_ERROR_UNSUPPORTED);
     }
 }
+
+static int  diff_adc_read(int sel_ch)
+{
+    int ret = 0;
+
+    if (mAdc_Ctx.enable == FALSE) {
+        return 0;
+    }
+
+    memset(adc_data, 0, sizeof(adc_data));
+
+    for (int i = 0; i < 1000; i++) {
+        udelay(10);
+
+        if (GET_IRQ_STATUS & BIT(sel_ch)) {
+            for (int n = 0; n < (MAX_ADC_SAMPLE_SIZE - 31); n++) {
+                adc_data[n] = (uint16_t)(read_reg(ADC_CH_BASE + (sel_ch * 0x80) + ((n + 3) * 4)) & 0xfff);
+            }
+
+            CLEAR_ADC_INT(sel_ch);
+            int value = phy_adc_value_cal((adc_CH_t)sel_ch, adc_data, (MAX_ADC_SAMPLE_SIZE - 31), FALSE, TRUE);
+            ret = value;
+            break;
+        }
+
+        if (i == 999) {
+            printf("out of max times\r\n");
+            ret = 0;
+        }
+    }
+
+    if (mAdc_Ctx.is_continue_mode == FALSE) {
+        phy_adc_stop();
+    }
+
+    return  ret;
+}
+
+adc_Cfg_t cfg = {
+    .is_continue_mode = FALSE,
+    .is_differential_mode = TRUE,
+    .is_high_resolution = FALSE,
+    .is_auto_mode = FALSE,
+};
+
+int drv_adc_diff_read(int channel)
+{
+    int ret = 0;
+
+    phy_adc_init();
+
+    //adc_CH_t channel = ADC_CH3DIFF;//ADC_CH3P_P20;
+    ret = phy_adc_config_channel((adc_CH_t)(channel), cfg, NULL);
+
+    if (ret < 0) {
+        return 0;
+    }
+
+    phy_adc_start_int_dis();
+
+    return diff_adc_read((adc_CH_t)(channel)); //ADC_CH3P_P20
+}
+

@@ -57,14 +57,33 @@ MK_CFLAGS += -I$(YOC_SDK)include\
 
 MK_CFLAGS += \
     -I$(YOC_SDK)modules/ble_dut/include \
-    -I$(YOC_SDK)modules/bt/include \
     -I$(YOC_SDK)modules/genie_app/include \
     -I$(YOC_SDK)modules/genie_app/include/genie_app \
     -I$(YOC_SDK)modules/genie_app/include/genie_mesh \
     -I$(YOC_SDK)modules/genie_app/include/mesh_model \
+    -I$(YOC_SDK)modules/ble_profiles/include \
+    -I$(YOC_SDK)modules/mesh_node/include \
+    -I$(YOC_SDK)modules/mesh_provisioner/include \
+    -I$(YOC_SDK)modules/ERS/include \
+    -I$(YOC_SDK)drivers/keyboard/include \
+    -I$(YOC_SDK)drivers/digitron/include \
     -I$(YOC_SDK)kernel/protocols/bluetooth/include \
+    -I$(YOC_SDK)kernel/protocols/bluetooth/bt_host  \
     -I$(YOC_SDK)kernel/protocols/bluetooth/bt_host/include \
+    -I$(YOC_SDK)kernel/protocols/bluetooth/bt_host/port/include \
+    -I$(YOC_SDK)kernel/protocols/bluetooth/bt_host/port/aos/include \
     -I$(YOC_SDK)kernel/protocols/bluetooth/bt_mesh \
     -I$(YOC_SDK)kernel/protocols/bluetooth/bt_mesh/inc \
-    -I$(YOC_SDK)kernel/protocols/bluetooth/bt_mesh/inc/api
+    -I$(YOC_SDK)kernel/protocols/bluetooth/bt_mesh/inc/api	\
+    -I$(YOC_SDK)modules/esl/ \
+    -I$(YOC_SDK)kernel/protocols/bluetooth/bt_mesh/mesh_model/include \
+    -I$(YOC_SDK)modules/tinycrypt/include
 
+MK_CFLAGS += \
+    -I$(YOC_SDK)modules/mesh_models/common/include \
+    -I$(YOC_SDK)modules/mesh_models/sig_model/include \
+    -I$(YOC_SDK)modules/mesh_models/vendor_model/include
+
+MK_CFLAGS += \
+    -I$(YOC_SDK)modules/genie_app \
+    -I$(YOC_SDK)modules/genie_app/bluetooth/mesh

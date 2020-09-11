@@ -22,23 +22,25 @@
  ******************************************************************************/
 MEMORY
 {
-    LR_IROM0   : ORIGIN = 0x11032000, LENGTH = 0x20000    /* FLASH 312KB*/
+    LR_IROM0   : ORIGIN = 0x1105D000, LENGTH = 0x20000    /* FLASH 120 KB*/
     LR_IRAM0   : ORIGIN = 0x1fff0000, LENGTH = 0x00800    /* on-chip SRAM0 2KB*/
     LR_IRAM1   : ORIGIN = 0x1fff0800, LENGTH = 0x00400    /* on-chip SRAM0 1KB*/
     LR_IRAM2   : ORIGIN = 0x1fff0c00, LENGTH = 0x00400    /* on-chip SRAM0 1KB*/
     LR_IRAM3   : ORIGIN = 0x1fff1000, LENGTH = 0x03800    /* on-chip SRAM0 14KB*/
-    LR_IRAM4   : ORIGIN = 0x1fff4800, LENGTH = 0x0B800    /* on-chip SRAM0 46KB*/
-    LR_IRAM5   : ORIGIN = 0x20000000, LENGTH = 0x12800    /* on-chip SRAM2 74KB*/
+    LR_IRAM4   : ORIGIN = 0x1fff4800, LENGTH = 0x1E000    /* on-chip SRAM 120KB*/
 }
 
-__min_heap_size = 0x200;
-PROVIDE (__ram_end  = 0x1fff8000 + 0x08000);
+__min_heap_size = 0x800;
+PROVIDE (__ram_end  = 0x1fff4800 + 0x1E000);
 PROVIDE (__heap_end = __ram_end);
 
 REGION_ALIAS("REGION_TEXT",    LR_IROM0);
 REGION_ALIAS("REGION_RODATA",  LR_IROM0);
 REGION_ALIAS("REGION_RETENTION0",    LR_IRAM4);
-REGION_ALIAS("REGION_RETENTION1",    LR_IRAM5);
+REGION_ALIAS("REGION_RETENTION1",    LR_IRAM4);
+REGION_ALIAS("REGION_NORETENTION0",  LR_IRAM4);
+REGION_ALIAS("REGION_NORETENTION1",  LR_IRAM4);
+REGION_ALIAS("REGION_NORETENTION2",  LR_IRAM4);
 
 ENTRY(Reset_Handler)
 SECTIONS
@@ -80,7 +82,7 @@ SECTIONS
   *libbt_host.a:buf.o(.text.*)
   *libbt_host.a:ble.o(.text.*)
   *libdrivers_bt*.a:(.text.* .rodata.*)
-  *(.retention_mem_area0 retention_mem_area0)
+
  } > REGION_RETENTION1
  .text : {
   . = ALIGN(0x4) ;
@@ -194,10 +196,6 @@ SECTIONS
  .global_config : {
   KEEP (*(global_config_area))
  } > LR_IRAM2
- .data_noretention : {
-  . = ALIGN(0x4) ;
-  *(noretention_mem_area0)
- } > REGION_RETENTION0
  .bss : {
   . = ALIGN(0x4) ;
   __sbss = ALIGN(0x4) ;
@@ -216,10 +214,14 @@ SECTIONS
   __end = . ;
   end = . ;
  } > REGION_RETENTION0
+  .data_noretention : {
+  . = ALIGN(0x4) ;
+  *(noretention_mem_area0)
+ } > REGION_NORETENTION0
  ._user_heap : {
   . = ALIGN(0x4) ;
   __heap_start = .;
   . += __min_heap_size;
   . = ALIGN(0x4) ;
- } > REGION_RETENTION0
+ } > REGION_NORETENTION0
 }

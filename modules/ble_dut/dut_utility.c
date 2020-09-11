@@ -25,7 +25,6 @@
  * INCLUDES
  */
 #include "log.h"
-#include <math.h>
 #include <aos/aos.h>
 
 int char2hex(const char *c, uint8_t *x)
@@ -85,28 +84,6 @@ int int_num_check(char *data)
     return  0;
 }
 
-int16_t  asciitohex(char *data)
-{
-    int i;
-    int ret_data=0;
-
-    if(*data == '-'){
-        for(i =1;i<strlen(data);i++){
-            ret_data += ((*(data +i)-0x30)*pow(10,(strlen(data)-1-i)));
-        }
-        return -ret_data;
-    }else if(*data == '+'){
-        for(i =1;i<strlen(data);i++){
-            ret_data += ((*(data +i)-0x30)*pow(10,(strlen(data)-1-i)));
-        }
-        return ret_data;
-    }else{
-        for(i =0;i<strlen(data);i++){
-            ret_data += ((*(data +i)-0x30)*pow(10,(strlen(data)-1-i)));
-        }
-        return ret_data;
-    }
-}
 
 char *str_chr(char *d, char *s, int c)
 {

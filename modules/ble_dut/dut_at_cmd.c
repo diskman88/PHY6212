@@ -45,8 +45,9 @@
 /***************************************************************/
 #define FREQ_FLASH_OFFSET  0x20
 #define FREQ_LEN           4
-#define FLASH_RSV_LEN           96
-
+#define FLASH_RSV_LEN      96
+#define DUT_NORMAL_CHECK   0xA5
+extern void enableSleepInPM(uint8_t flag);
 
 extern dut_uart_cfg_t g_dut_uart_cfg;
 static volatile uint8_t rx_scan_flag = 0;
@@ -95,23 +96,16 @@ int dut_cmd_rx_mode(int argc, char *argv[])
 
     enableSleepInPM(0xFF);
 
-    rf_phy_dtm_init(NULL);
-
-    rf_phy_set_dtmModeType(RF_PHY_DTM_MODE_RESET);
-
-    rf_phy_dtm_trigged();
-
-    rf_phy_set_dtmModeType(RF_PHY_DTM_MODE_RX_PER);
-    rf_phy_set_dtmChan(0);
-    rf_phy_set_dtmFreqOffSet(0);
-    rf_phy_set_dtmLength(0x10);
-    rf_phy_dtm_trigged();
-
-    aos_msleep(sleep_time);
+    uint8_t *rx_est_rssi = NULL;
+    uint8_t *rx_est_carrsens = NULL;
+    uint16_t *rx_pkt_num = NULL;
+    printf("START OK\r\n");
+    rf_phy_dtm_ext_rx_demod_burst(0,0,0x10,sleep_time,50000,0,rx_est_rssi,rx_est_carrsens,rx_pkt_num);
 
     rf_phy_dtm_stop();
-
+    extern void disableSleepInPM(uint8_t flag);
     disableSleepInPM(0xFF);
+    extern void boot_wdt_close(void);
     boot_wdt_close();
     dut_uart_init(&g_dut_uart_cfg);
     return OK;
@@ -172,6 +166,52 @@ int  fdut_cmd_opt_mac(int argc, char *argv[])
     return OK;
 }
 
+int  dut_cmd_tx_mode_burst(int argc, char *argv[])
+{
+    uint8_t txpower;
+    uint8_t rfchnidx;
+    int8_t rffoff;
+    uint8_t pkttype;
+    uint8_t pktlength;
+    uint32 txpktnum;
+    uint32 txpktintv;
+
+    if (argc != 8) {
+        return -1;
+    }
+
+    txpower = (uint8_t)(atoi(argv[1]));
+    rfchnidx = (uint8_t)(atoi(argv[2]));
+    rffoff = (int8_t)(atoi(argv[3]));
+    pkttype = (uint8_t)(atoi(argv[4]));
+    pktlength = (uint8_t)(atoi(argv[5]));
+    txpktnum = (uint32)(atoi(argv[6]));
+    txpktintv = (uint32)(atoi(argv[7]));
+
+    if (txpower > 0x3f) {
+        return -2;
+    }
+
+    if (rfchnidx > 39) {
+        return -3;
+    }
+
+    if (rffoff > 50 || rffoff < -50) {
+        return -4;
+    }
+
+    if (pkttype > 3) {
+        return -5;
+    }
+
+    if (pktlength > 0x3F) {
+        return -6;
+    }
+
+    rf_phy_dtm_ext_tx_mod_burst(txpower, rfchnidx, rffoff, pkttype, pktlength, txpktnum, txpktintv);
+    return OK;
+}
+
 int  dut_cmd_freq_off(int argc, char *argv[])
 {
     int ret;
@@ -190,7 +230,7 @@ int  dut_cmd_freq_off(int argc, char *argv[])
     partition_read(handle, 0, freq, sizeof(freq));
 
     if (argc == 1) {
-        if (freq[FREQ_FLASH_OFFSET] == 0xff) {
+        if (freq[FREQ_FLASH_OFFSET + 2] != DUT_NORMAL_CHECK) {
             printf("Not Set Freq_Off\r\n");
             return -1;
         }
@@ -204,7 +244,7 @@ int  dut_cmd_freq_off(int argc, char *argv[])
         }
 
         freq[FREQ_FLASH_OFFSET] = 0;
-        wfreq = asciitohex((char *)(argv[1]));
+        wfreq = atoi((char *)(argv[1]));
 
         if (wfreq < -200) {
             wfreq = -200;
@@ -214,6 +254,7 @@ int  dut_cmd_freq_off(int argc, char *argv[])
 
         wfreq = wfreq - wfreq % 20;
         freq[FREQ_FLASH_OFFSET] = (char)(wfreq / 4);
+        freq[FREQ_FLASH_OFFSET + 2] = DUT_NORMAL_CHECK;
 
         if (ewrite_flash(handle, (uint8_t *)(freq), sizeof(freq), 0) < 0) {
             return -1;
@@ -221,6 +262,11 @@ int  dut_cmd_freq_off(int argc, char *argv[])
     }
 
     partition_close(handle);
+    return  OK;
+}
+
+int fdut_cmd_tx_mode_burst(int argc, char *argv[])
+{
     return  OK;
 }
 
@@ -239,6 +285,11 @@ int  fdut_cmd_freq_off(int argc, char *argv[])
 
     memset(freq, 0, sizeof(freq));
     partition_read(handle, FREQ_FLASH_OFFSET, freq, sizeof(freq));
+
+    if (freq[2] != DUT_NORMAL_CHECK) {
+        printf("Not Set FreqOff\r\n");
+        return -1;
+    }
 
     if (argc == 1) {
         printf("+FREQ_OFF=%d Khz\r\n", ((int8_t)(freq[0])) * 4);

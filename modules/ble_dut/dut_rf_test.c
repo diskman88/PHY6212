@@ -25,7 +25,8 @@
 #define RF_PHY_DTM_CMD                              1
 #define RF_PHY_DTM_EVT                              2
 #define RF_PHY_DTM_TEST                             3
-
+extern volatile uint8_t g_dut_queue_num;
+extern aos_queue_t  g_dut_queue;
 /*******************************************************************************
  * Global Var
  */

@@ -31,6 +31,8 @@ int fdut_cmd_opt_mac(int argc, char *argv[]);
 int dut_cmd_freq_off(int argc, char *argv[]);
 int fdut_cmd_freq_off(int argc, char *argv[]);
 
+int dut_cmd_tx_mode_burst(int argc, char *argv[]);
+int fdut_cmd_tx_mode_burst(int argc, char *argv[]);
 
 void dut_at_cmd_init(void);
 

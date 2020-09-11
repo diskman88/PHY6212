@@ -28,7 +28,7 @@
 #define S_US 1000000
 #define MAX_CNT_TIME_US (S_US * 65535)
 #define MAX_DIV 7   /*MAV div val 1 << 7 = 128*/
-
+#define INTERG  16    //(PWM_BASE_FREQ / S_US)
 
 void phy_pwm_init(PWMN_e pwmN, PWM_CLK_DIV_e pwmDiv, PWM_CNT_MODE_e pwmMode, PWM_POLARITY_e pwmPolarity)
 {
@@ -213,7 +213,7 @@ pwm_handle_t csi_pwm_initialize(uint32_t idx)
     if (idx > 0) {
         return NULL;
     }
-
+    pwm_en = 0;
     pwmCtx.enable = true;
     return &pwmCtx;
 }
@@ -228,6 +228,7 @@ int32_t csi_pwm_config(pwm_handle_t handle,
                        uint32_t period_us,
                        uint32_t pulse_width_us)
 {
+    uint32_t temp_data = 0;
     PWM_NULL_PARAM_CHK(handle);
 
     if (pulse_width_us > period_us) {
@@ -243,7 +244,12 @@ int32_t csi_pwm_config(pwm_handle_t handle,
     p->pwmMode = PWM_CNT_UP;
 
     uint32_t div = BIT(p->pwmDiv & 0XFF);
-    p->cntTopVal = PWM_BASE_FREQ / div / (S_US / period_us);
+
+    temp_data = (INTERG / div * period_us);// PWM_BASE_FREQ / div / (S_US / period_us);
+    if(temp_data > 0xffff){
+        return -1;
+    }
+    p->cntTopVal = temp_data;
     p->cmpVal = (p->cntTopVal * pulse_width_us) / period_us;
 
     if (p->cmpVal <= 0) {
@@ -252,19 +258,21 @@ int32_t csi_pwm_config(pwm_handle_t handle,
     if (p->cmpVal == p->cntTopVal) {
         p->cmpVal --;
     }
-
     if (ch_en == FALSE) {
         phy_pwm_init(p->pwmN, p->pwmDiv, p->pwmMode, p->pwmPolarity);
     }
 
     phy_pwm_set_count_val(channel, p->cmpVal, p->cntTopVal);
-
     return 0;
 }
 
 void csi_pwm_start(pwm_handle_t handle, uint8_t channel)
 {
+    pwm_Ctx_t *base = handle;
+    ck_pwm_priv_t *p = &base->ch[channel];
+
     if (handle !=  NULL) {
+        phy_pwm_init(channel, p->pwmDiv, PWM_CNT_UP,PWM_POLARITY_FALLING);
         phy_pwm_ch_start(channel);
     }
 }

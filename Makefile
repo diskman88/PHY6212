@@ -85,16 +85,45 @@ all: auto_config csi_rtos lib
 
 ###############
 auto_config:
+	$(CPRE) sh tools/build/get_csi_src.sh
 	$(CPRE) mkdir -p $(MK_OUT_PATH)
 	$(CPRE) mkdir -p $(YOC_LIB)
 	$(CPRE) mkdir -p out/config
 	$(CPRE) sh tools/build/config2chead.sh $(MK_DEFCONFIG) out/config/yoc_config.h
 	$(CPRE) sh tools/build/config2chead.sh mk_csi_config out/config
+ifeq ($(CONFIG_BT), y)
+	$(CPRE) $(MAKE) -C kernel/protocols/bluetooth
+endif
 
 ###############
 csi_rtos:
 	$(CPRE) echo [INFO] make csi
 	$(CPRE) $(MAKE) -C csi/ lib TARGETS_ROOT_PATH=$(TARGETS_ROOT_PATH_CSI) CONFIG_FILE=$(MK_DEFCONFIG_CSI) CONFIG_INC_PATH=../out/config
+
+teeos:
+	$(CPRE) echo [INFO] make teeos
+	$(CPRE) mkdir -p out/config
+	$(CPRE) sh tools/build/config2chead.sh $(MK_DEFCONFIG) out/config/yoc_config.h
+	$(CPRE) sh tools/build/config2chead.sh mk_csi_config out/config
+	$(CPRE) make -C csi/ tee_os TARGETS_ROOT_PATH=$(TARGETS_ROOT_PATH_CSI) CONFIG_FILE=$(MK_DEFCONFIG_CSI)
+
+teeinstall:
+	$(CPRE) echo "Install tee to board"
+	$(CPRE) cp -f csi/csi_driver/$(CONFIG_CHIP_VENDOR_STR)/common/tee/bin/tee_os_$(CONFIG_CHIP_NAME_STR).bin $(TARGETS_ROOT_PATH)/bootimgs/tee
+	$(CPRE) cp -f csi/csi_driver/$(CONFIG_CHIP_VENDOR_STR)/common/tee/bin/tee_os_$(CONFIG_CHIP_NAME_STR) $(TARGETS_ROOT_PATH)/bootimgs/tee.elf
+	$(CPRE) echo "$(TARGETS_ROOT_PATH)/bootimgs/tee"
+
+###############
+bootinstall:
+	$(CPRE) echo "Install boot to board"
+	$(CPRE) cp -f bootloader/out/boot.bin $(TARGETS_ROOT_PATH)/bootimgs/boot
+	$(CPRE) cp -f bootloader/out/boot.elf $(TARGETS_ROOT_PATH)/bootimgs/
+	$(CPRE) cp -f bootloader/out/bomtb $(TARGETS_ROOT_PATH)/bootimgs/
+	$(CPRE) echo "$(TARGETS_ROOT_PATH)/bootimgs/boot"
+
+bootloader:auto_config
+	$(CPRE) make -C bootloader TARGETS_DEST_CFG_FILE=$(CONFIG_BOARD_NAME_STR)
+	$(CPRE) make -C csi/ clean
 
 #####################################################################
 include boards/$(MK_BOARD_DIR)/build.mk
@@ -109,13 +138,17 @@ prelibs: $(MK_L_PRE_LIBS_SRC)
 
 lib: $(MK_L_LIBS) prelibs $(MK_L_PRE_LIBS)
 #yoc
-	$(CPRE) mkdir -p $(YOC_LIB)/include 
+	$(CPRE) mkdir -p $(YOC_LIB)/include
 	$(CPRE) cp -rf include $(YOC_LIB)/
 	$(CPRE) cp -rf out/config/* $(YOC_LIB)/include/.
 
 #modules
-	$(CPRE) mkdir -p $(YOC_LIB)/modules/ble_dut/
-	$(CPRE) cp -rf modules/ble_dut/include $(YOC_LIB)/modules/ble_dut/
+ifeq ($(CONFIG_MESH_GENIE_APP), y)
+	$(CPRE) mkdir -p $(YOC_LIB)/modules/genie_app/include
+	$(CPRE) cp -rf modules/genie_app/* $(YOC_LIB)/modules/genie_app/
+	$(CPRE) rm -rf $(YOC_LIB)/modules/genie_app/include/tinycrypt
+	$(CPRE) find $(YOC_LIB)/modules/genie_app/ -name '*.c' | xargs -I{} rm {}
+endif
 
 #libs
 	$(CPRE) mkdir -p $(YOC_LIB)/libs/misc
@@ -157,38 +190,57 @@ endif
 	$(CPRE) cp -rf tools/build $(YOC_LIB)/../tools/
 	$(CPRE) cp -rf tools/$(CONFIG_BOARD_NAME_STR)/ $(YOC_LIB)/../tools/
 #kernel
-	$(CPRE) mkdir -p $(YOC_LIB)/kernel/protocols/lwip/port $(YOC_LIB)/kernel/protocols/sal/
+	$(CPRE) mkdir -p $(YOC_LIB)/kernel/protocols/lwip/port 
 	$(CPRE) cp -rf kernel/protocols/lwip/include $(YOC_LIB)/kernel/protocols/lwip/
 	$(CPRE) cp -rf kernel/protocols/lwip/port/include $(YOC_LIB)/kernel/protocols/lwip/port/
-
+#
+	$(CPRE) cp -rf drivers/bt/hci_ch6121/libdrivers_bt.a $(YOC_LIB)/lib/
 #bt
+	$(CPRE) mkdir -p $(YOC_LIB)/modules/ble_profiles
+	$(CPRE) cp -rf modules/ble_profiles/include $(YOC_LIB)/modules/ble_profiles
+ifeq ($(CONFIG_BT_MESH), y)
+	$(CPRE) mkdir -p $(YOC_LIB)/modules/mesh_node
+	$(CPRE) cp -rf modules/mesh_node/include $(YOC_LIB)/modules/mesh_node
+	$(CPRE) mkdir -p $(YOC_LIB)/modules/mesh_provisioner
+	$(CPRE) cp -rf modules/mesh_provisioner/include $(YOC_LIB)/modules/mesh_provisioner
+	$(CPRE) mkdir -p $(YOC_LIB)/modules/mesh_models/common
+	$(CPRE) cp -rf modules/mesh_models/common/include $(YOC_LIB)/modules/mesh_models/common
+	$(CPRE) mkdir -p $(YOC_LIB)/modules/mesh_models/sig_model
+	$(CPRE) cp -rf modules/mesh_models/sig_model/include $(YOC_LIB)/modules/mesh_models/sig_model
+	$(CPRE) mkdir -p $(YOC_LIB)/modules/mesh_models/vendor_model
+	$(CPRE) cp -rf modules/mesh_models/vendor_model/include $(YOC_LIB)/modules/mesh_models/vendor_model
+endif
+	$(CPRE) mkdir -p $(YOC_LIB)/modules/ERS
+	$(CPRE) cp -rf modules/ERS/include $(YOC_LIB)/modules/ERS
+	$(CPRE) mkdir -p $(YOC_LIB)/drivers/keyboard
+	$(CPRE) cp -rf drivers/keyboard/include $(YOC_LIB)/drivers/keyboard
+	$(CPRE) mkdir -p $(YOC_LIB)/drivers/digitron
+	$(CPRE) cp -rf drivers/digitron/include $(YOC_LIB)/drivers/digitron
 
-	$(CPRE) mkdir -p $(YOC_LIB)/modules/bt
-	$(CPRE) cp -rf modules/bt/include $(YOC_LIB)/modules/bt
 	$(CPRE) mkdir -p $(YOC_LIB)/kernel/protocols/bluetooth/bt_host/include
 	$(CPRE) cp -rf kernel/protocols/bluetooth/bt_host/include $(YOC_LIB)/kernel/protocols/bluetooth/bt_host/
 	$(CPRE) cp -rf kernel/protocols/bluetooth/include $(YOC_LIB)/kernel/protocols/bluetooth/
-
+ifeq ($(CONFIG_BT_MESH), y)
+	$(CPRE) mkdir -p $(YOC_LIB)/kernel/protocols/bluetooth/bt_mesh
+	$(CPRE) cp -rf kernel/protocols/bluetooth/bt_mesh/inc $(YOC_LIB)/kernel/protocols/bluetooth/bt_mesh/
+endif
+	$(CPRE) cp -rf kernel/protocols/bluetooth/include $(YOC_LIB)/kernel/protocols/bluetooth/
 #tinycrypt
 	$(CPRE) mkdir -p $(YOC_LIB)/modules/tinycrypt
 	$(CPRE) cp -rf kernel/protocols/bluetooth/bt_crypto/tinycrypt/include $(YOC_LIB)/modules/tinycrypt
+	$(CPRE) mkdir -p $(YOC_LIB)/modules/ble_dut
+	$(CPRE) cp -rf modules/ble_dut/include $(YOC_LIB)/modules/ble_dut
+cdk:
+	$(CPRE) sh tools/$(CONFIG_BOARD_NAME_STR)/cdk/gen_cdksdk.sh
 
-#prebuild libs
-ifeq ($(CONFIG_BT_CENTRAL)_$(CONFIG_BT_PERIPHERAL), y_y)
-	$(CPRE) cp -rf kernel/protocols/bluetooth/bt_host/central_peripheral/libbt_host.a $(YOC_LIB)/lib/
-	$(CPRE) cp -rf kernel/protocols/bluetooth/bt_host/central_peripheral/libdrivers_bt.a $(YOC_LIB)/lib/
-else ifeq ($(CONFIG_BT_CENTRAL), y)
-	$(CPRE) cp -rf kernel/protocols/bluetooth/bt_host/central/libbt_host.a $(YOC_LIB)/lib/
-	$(CPRE) cp -rf kernel/protocols/bluetooth/bt_host/central/libdrivers_bt.a $(YOC_LIB)/lib/
-else ifeq ($(CONFIG_BT_PERIPHERAL), y)
-	$(CPRE) cp -rf kernel/protocols/bluetooth/bt_host/peripheral/libbt_host.a $(YOC_LIB)/lib/
-	$(CPRE) cp -rf kernel/protocols/bluetooth/bt_host/peripheral/libdrivers_bt.a $(YOC_LIB)/lib/
-endif
+cdk_install:
+	$(CPRE) sh tools/$(CONFIG_BOARD_NAME_STR)/cdk/install_cdksdk.sh
 
-	$(CPRE) cp -rf kernel/protocols/bluetooth/bt_crypto/libbt_crypto.a $(YOC_LIB)/lib/
-	$(CPRE) cp -rf kernel/protocols/bluetooth/bt_crypto/libtinycrypt.a $(YOC_LIB)/lib/
+build_test:
+	$(CPRE) sh tools/$(CONFIG_BOARD_NAME_STR)/build_test.sh
 
-	$(CPRE) cp -rf kernel/fs/kv2/libkv.a $(YOC_LIB)/lib/
+build_test_cdk:
+	$(CPRE) sh tools/$(CONFIG_BOARD_NAME_STR)/build_test_cdk.sh
 
 else
 all:help
@@ -200,7 +252,17 @@ endif
 clean:
 	rm -rf $(MK_OUT_PATH) yoc_sdk
 	make -C csi/ clean
+	make -C bootloader clean
 	rm -fr yoc.* include/yoc_config.h
+ifeq ($(CONFIG_BT), y)
+	$(CPRE) make -C kernel/protocols/bluetooth
+endif
+
+getcsi:
+	$(CPRE) sh tools/build/get_csi_src.sh
+
+gen_sdk:
+	$(CPRE) make -f build_sdk.mk
 
 help:
 	@echo "#Build Command Example#"

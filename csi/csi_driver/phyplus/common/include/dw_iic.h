@@ -82,6 +82,7 @@ enum i2c_state_e {
 /* IC_CON register */
 #define DW_IIC_CON_DEFAUL           0x23
 #define DW_IIC_CON_SLAVE_ENABLE     (1 << 6)
+#define DW_IIC_CON_10BITADDR_MASTER (1 << 4)
 #define DW_IIC_CON_10BITADDR_SLAVE  (1 << 3)
 #define DW_IIC_CON_MASTER_ENABLE    (1 << 0)
 

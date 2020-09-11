@@ -48,7 +48,6 @@ static void yoc_led_timer_trigger(dev_t *dev)
     int        delay_time;
 
     delay_time = (led->blink == BLINK_ON) ? led->on_time : led->off_time;
-
     if (delay_time <= 0 && led->ctrl_req) {
         delay_time = 100;
     }
@@ -96,21 +95,24 @@ static int yoc_led_rgb_config(dev_t *dev, uint32_t r_pin, uint32_t g_pin, uint32
     if (r_pin != LED_PIN_NOT_SET) {
         drv_pinmux_config(r_pin, PIN_FUNC_GPIO);
         led->led_r_pin_handle = csi_gpio_pin_initialize(r_pin, NULL);
-        csi_gpio_pin_config(led->led_r_pin_handle, GPIO_MODE_PUSH_PULL, GPIO_DIRECTION_OUTPUT);
+        csi_gpio_pin_config_mode(led->led_r_pin_handle, GPIO_MODE_PULLDOWN);
+        csi_gpio_pin_config_direction(led->led_r_pin_handle, GPIO_DIRECTION_OUTPUT);
         LED_GPIO_SET(led->led_r_pin_handle, COLOR_RED_GET(led->color) ? 0 : 1, led_config->flip);
     }
 
     if (g_pin != LED_PIN_NOT_SET) {
         drv_pinmux_config(g_pin, PIN_FUNC_GPIO);
         led->led_g_pin_handle = csi_gpio_pin_initialize(g_pin, NULL);
-        csi_gpio_pin_config(led->led_g_pin_handle, GPIO_MODE_PUSH_PULL, GPIO_DIRECTION_OUTPUT);
+        csi_gpio_pin_config_mode(led->led_g_pin_handle, GPIO_MODE_PULLDOWN);
+        csi_gpio_pin_config_direction(led->led_g_pin_handle, GPIO_DIRECTION_OUTPUT);
         LED_GPIO_SET(led->led_g_pin_handle, COLOR_GREEN_GET(led->color) ? 0 : 1, led_config->flip);
     }
 
     if (b_pin != LED_PIN_NOT_SET) {
         drv_pinmux_config(b_pin, PIN_FUNC_GPIO);
         led->led_b_pin_handle = csi_gpio_pin_initialize(b_pin, NULL);
-        csi_gpio_pin_config(led->led_b_pin_handle, GPIO_MODE_PUSH_PULL, GPIO_DIRECTION_OUTPUT);
+        csi_gpio_pin_config_mode(led->led_b_pin_handle, GPIO_MODE_PULLDOWN);
+        csi_gpio_pin_config_direction(led->led_b_pin_handle, GPIO_DIRECTION_OUTPUT);
         LED_GPIO_SET(led->led_b_pin_handle, COLOR_BLUE_GET(led->color) ? 0 : 1, led_config->flip);
     }
 #endif
@@ -167,19 +169,16 @@ static int yoc_led_rgb_control(dev_t *dev, int color, int on_time, int off_time)
 
     if (led->led_r_pin_handle) {
         drv_pinmux_config(led_config->pin_r, PIN_FUNC_GPIO);
-        csi_gpio_pin_config(led->led_r_pin_handle, GPIO_MODE_PUSH_PULL, GPIO_DIRECTION_OUTPUT);
         LED_GPIO_SET(led->led_r_pin_handle, COLOR_RED_GET(led->color) ? 0: 1, led_config->flip);
     }
 
     if (led->led_g_pin_handle) {
         drv_pinmux_config(led_config->pin_g, PIN_FUNC_GPIO);
-        csi_gpio_pin_config(led->led_g_pin_handle, GPIO_MODE_PUSH_PULL, GPIO_DIRECTION_OUTPUT);
         LED_GPIO_SET(led->led_g_pin_handle, COLOR_GREEN_GET(led->color) ? 0: 1, led_config->flip);
     }
 
     if (led->led_b_pin_handle) {
         drv_pinmux_config(led_config->pin_b, PIN_FUNC_GPIO);
-        csi_gpio_pin_config(led->led_b_pin_handle, GPIO_MODE_PUSH_PULL, GPIO_DIRECTION_OUTPUT);
         LED_GPIO_SET(led->led_b_pin_handle, COLOR_BLUE_GET(led->color) ? 0: 1, led_config->flip);
     }
 

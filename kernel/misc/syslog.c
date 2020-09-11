@@ -118,8 +118,7 @@ int aos_log_hexdump(const char *tag, char *buffer, int len)
     int ret, i;
 
     /* Get the current time */
-    // ret = clock_gettime(CLOCK_MONOTONIC, &ts);
-    ret = 1;
+    ret = clock_gettime(CLOCK_MONOTONIC, &ts);
 
     if (ret == 0) {
         printf("[%6d.%06d][%s]\n", ts.tv_sec, (int)ts.tv_nsec / 1000, tag);

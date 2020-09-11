@@ -31,11 +31,11 @@
 **************************************************************************************************/
 
 /*******************************************************************************
-* @file		adc.h
-* @brief	Contains all functions support for adc driver
-* @version	0.0
-* @date		18. Oct. 2017
-* @author	qing.han
+* @file     adc.h
+* @brief    Contains all functions support for adc driver
+* @version  0.0
+* @date     18. Oct. 2017
+* @author   qing.han
 *
 * Copyright(C) 2016, PhyPlus Semiconductor
 * All rights reserved.
@@ -254,5 +254,6 @@ int phy_adc_value_cal(adc_CH_t ch, uint32_t *buf, uint32_t size, bool high_resol
 
 extern void phy_pad_ds_control(GPIO_Pin_e pin, BitAction_e value);
 
-uint8_t get_adc_channel(void);
+
+int drv_adc_diff_read(int channel);
 #endif

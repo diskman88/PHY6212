@@ -33,6 +33,7 @@
 #include <sys_freq.h>
 #include <clock.h>
 
+
 #define ERR_USART(errno) (CSI_DRV_ERRNO_USART_BASE | errno)
 
 /*
@@ -441,7 +442,6 @@ static void dw_usart_intr_recv_line(int32_t idx, dw_usart_priv_t *usart_priv)
 {
     dw_usart_reg_t *addr = (dw_usart_reg_t *)(usart_priv->base);
     uint32_t lsr_stat = addr->LSR;
-
     uint32_t timecount = 0;
 
     while (addr->LSR & 0x1) {
@@ -669,6 +669,8 @@ usart_capabilities_t csi_usart_get_capabilities(int32_t idx)
     return usart_capabilities;
 }
 
+
+
 /**
   \brief       Initialize USART Interface. 1. Initializes the resources needed for the USART interface 2.registers event callback function
   \param[in]   idx usart index
@@ -679,14 +681,17 @@ usart_handle_t csi_usart_initialize(int32_t idx, usart_event_cb_t cb_event)
 {
     uint32_t base = 0u;
     uint32_t irq = 0u;
+    int32_t ret = 0;
     void *handler;
-    int32_t ret = target_usart_init(idx, &base, &irq, &handler);
+    dw_usart_priv_t *usart_priv = NULL;
+
+    ret = target_usart_init(idx, &base, &irq, &handler);
 
     if (ret < 0 || ret >= CONFIG_USART_NUM) {
         return NULL;
     }
 
-    dw_usart_priv_t *usart_priv = &usart_instance[idx];
+    usart_priv = &usart_instance[idx];
     usart_priv->base = base;
     usart_priv->irq = irq;
     usart_priv->cb_event = cb_event;
@@ -755,6 +760,8 @@ int32_t csi_usart_config(usart_handle_t handle,
 {
     int32_t ret;
 
+    USART_NULL_PARAM_CHK(handle);
+
     /* control the data_bit of the usart*/
     ret = csi_usart_config_baudrate(handle, baud);
 
@@ -817,6 +824,13 @@ int32_t csi_usart_send(usart_handle_t handle, const void *data, uint32_t num)
 
     for (i = 0; i < num; i++) {
         csi_usart_putchar(handle, buff[i]);
+    }
+
+    dw_usart_reg_t *addr = (dw_usart_reg_t *)(usart_priv->base);
+    int ret = usart_wait_timeout(handle, addr);
+
+    if (ret) {
+        return ERR_USART(DRV_ERROR_TIMEOUT);
     }
 
     if (usart_priv->cb_event) {

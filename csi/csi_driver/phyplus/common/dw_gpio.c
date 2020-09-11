@@ -388,9 +388,8 @@ void csi_gpio_prepare_sleep_action()
 void csi_gpio_wakeup_sleep_action()
 {
     uint32_t addr = 0x40008000;
-    registers_save((uint32_t *)addr, gpio_regs_saved, 16);
+    registers_restore((uint32_t *)addr, gpio_regs_saved, 16);
 }
-
 
 /**
   \brief       Initialize GPIO handle.
@@ -551,7 +550,13 @@ int32_t csi_gpio_pin_config(gpio_pin_handle_t handle,
     gpio_priv->dir = dir;
     gpio_priv->mask = 1 << gpio_pin_priv->idx;
 
-    uint32_t ret = dw_gpio_set_direction(gpio_priv, dir);
+    uint8_t offset = gpio_pin_priv->offset;
+    int32_t ret = drv_pin_config_mode(gpio_pin_priv->portidx, offset, mode);
+    if (ret) {
+        return ret;
+    }
+
+    ret = dw_gpio_set_direction(gpio_priv, dir);
 
     if (ret) {
         return ret;

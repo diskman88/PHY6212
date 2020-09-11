@@ -43,6 +43,12 @@ L_SRCS += led/led.c
 ## conmmon device ##
 L_SRCS += common/device.c
 
+## keyboard ##
+L_SRCS += keyboard/keyboard.c
+
+## digitron ##
+L_SRCS += digitron/digitron.c
+
 ifeq ($(CONFIG_BT), y)
 L_SRCS += bt/hci_drv.c
 endif

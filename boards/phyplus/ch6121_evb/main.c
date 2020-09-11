@@ -27,9 +27,11 @@
 #include <yoc/sysinfo.h>
 #include <yoc/yoc.h>
 #include <devices/devicelist.h>
-
-#define INIT_TASK_STACK_SIZE 2048
-static cpu_stack_t app_stack[INIT_TASK_STACK_SIZE / 4] __attribute((section(".data")));
+#ifndef CONFIG_INIT_TASK_STACK_SIZE
+#define CONFIG_INIT_TASK_STACK_SIZE 2048
+#endif
+#define INIT_TASK_STACK_SIZE CONFIG_INIT_TASK_STACK_SIZE
+static cpu_stack_t app_stack[INIT_TASK_STACK_SIZE / 4];
 static ktask_t app_task_handle = {0};
 
 extern void app_main();

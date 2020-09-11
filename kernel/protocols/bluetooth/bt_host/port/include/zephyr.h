@@ -178,7 +178,7 @@ enum k_poll_modes {
     k_thread_stack_t name[(size) / sizeof(k_thread_stack_t)];
 
 #define BT_STACK_NOINIT(name, size) \
-    k_thread_stack_t name[(size) / sizeof(k_thread_stack_t)]  __attribute__((section(".data")));
+    k_thread_stack_t name[(size) / sizeof(k_thread_stack_t)];
 
 static inline  void k_call_stacks_analyze()
 {

@@ -130,6 +130,7 @@ ifeq ($(CONFIG_CPU_CM0),y)
 	$(CPRE) cp $(MK_GENERATED_IMGS_PATH)/total_image.hex $(MK_GENERATED_IMGS_PATH)/total_image.hexf
 	$(CPRE) cp $(MK_GENERATED_IMGS_PATH)/total_image.hex $(MK_GENERATED_IMGS_PATH)/$(FW_RELEASE).hexf
 	$(CPRE) rm -fr $(MK_GENERATED_IMGS_PATH)/data
+	$(CPRE) $(YOC_DIR)/tools/build/product$(EXE_EXT) diff -f $(MK_GENERATED_IMGS_PATH)/images.zip $(MK_GENERATED_IMGS_PATH)/images.zip -r -v "v1.0" -o $(MK_GENERATED_IMGS_PATH)/fota.bin
 else
 	$(CPRE) cp $(TARGETS_ROOT_PATH)/bootimgs/boot $(MK_GENERATED_IMGS_PATH)/data/
 	$(CPRE) cp $(TARGETS_ROOT_PATH)/bootimgs/tee $(MK_GENERATED_IMGS_PATH)/data/

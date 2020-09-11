@@ -49,7 +49,10 @@ static unsigned char  dut_queue_buf[CONFIG_QUEUE_BUF_SIZE]  __attribute__((secti
 
 /****************************************************************/
 static volatile uint8_t dut_mode_flag;
-
+extern volatile uint8_t g_dut_queue_num;
+extern aos_queue_t  g_dut_queue;
+volatile uint8_t g_execute_flag;
+aos_timer_t duttimer;
 /** uart config **/
 dut_uart_cfg_t g_dut_uart_cfg = {
     0, //uart idx
@@ -81,10 +84,11 @@ struct cli_cmd {
 static const struct cli_cmd dut_commands[]  = {
     //AT+TEST     AT+TEST=?           AT+TEST?
     { "RXMODE", dut_cmd_rx_mode, "TEST help", dut_cmd_ftest},
-    { "SLEEP", dut_cmd_sleep, "+SLEEP" , NULL},
-    { "IREBOOT", dut_cmd_ireboot, "+IREBOOT='mode'" , NULL},
-    { "MAC", dut_cmd_opt_mac, "+MAC='xx:xx:xx:xx:xx:xx'" , fdut_cmd_opt_mac},
-    { "FREQOFF", dut_cmd_freq_off, "+FREQ_OFF='value'" , fdut_cmd_freq_off},
+    { "SLEEP", dut_cmd_sleep, "+SLEEP", NULL},
+    { "IREBOOT", dut_cmd_ireboot, "+IREBOOT='mode'", NULL},
+    { "MAC", dut_cmd_opt_mac, "+MAC='xx:xx:xx:xx:xx:xx'", fdut_cmd_opt_mac},
+    { "FREQOFF", dut_cmd_freq_off, "+FREQOFF='value'", fdut_cmd_freq_off},
+    { "TXMODEBURST", dut_cmd_tx_mode_burst, "+TXMODEBURST='txPower','rfChnIdx','rfFoff','pktType','pktLength','txPktNum','txPktIntv'", fdut_cmd_tx_mode_burst},
     { NULL, NULL, NULL, NULL },
 };
 
@@ -129,6 +133,7 @@ static void cmd_cli_func(int type, int argc, char **argv)
         for (i = 0; dut_commands[i].cmd_name != NULL; i ++) {
             printf("    %s %s\n", dut_commands[i].cmd_name, dut_commands[i].help);
         }
+
         return;
     }
 
@@ -181,12 +186,13 @@ static int is_at_cmd(char *data)
     if ((*data == 'A') && (*(data + 1) == 'T')) {
         return 1;
     }
+
     return 0;
 }
 
 static void dut_test_at(char data[])
 {
-    char argv[10][10];
+    char argv[10][20];
     char *hcc;
     char *argqv[10];
 
@@ -199,6 +205,7 @@ static void dut_test_at(char data[])
     argv[0][0] = 'A';
     argv[0][1] = 'T';
     argv[0][2] = '\0';
+
     switch (ustype) {
         case NO_ADD:
             printf("OK\r\n");
@@ -208,6 +215,7 @@ static void dut_test_at(char data[])
             if (char_cut(argv[1], data, '+', '\0') == NULL) {
                 return;
             }
+
             argqv[0] = (char *)(&argv[0]);
             argqv[1] = (char *)(&argv[1]);
             cmd_cli_func(EXECUTE, 2, (char **)(&argqv));
@@ -272,11 +280,29 @@ static void dut_test_at(char data[])
 
 }
 
+static uint32_t retain_irq(void)
+{
+    uint32_t irqnum = 0;
+
+    irqnum = NVIC->ISER[0U];
+    NVIC->ICER[0U] = (uint32_t)(~((uint32_t)(1U << UART_IRQ)));
+    __DSB();
+    __ISB();
+
+    return irqnum;
+}
+
+static void set_irq(uint32_t irqnuum)
+{
+    NVIC->ISER[0U] = irqnuum;
+}
+
 static void dut_test_entry(void)
 {
     char msg_recv[CONFIG_UART_BUF_SIZE] = {0};
     unsigned int size_recv = 0;
     dut_mode_flag  = 1;
+    uint32_t  irqnum = 0;
 
     /* print rf config */
     rf_phy_direct_print();
@@ -284,16 +310,28 @@ static void dut_test_entry(void)
     rf_phy_dtm_init(dut_uart_putchar);
 
     g_dut_queue_num = 0;
+    g_execute_flag = 0;
 
     while (1) {
         memset(msg_recv, 0, sizeof(msg_recv));
 
+        while ((g_dut_queue_num == 0) && (g_execute_flag == 0));
+
+        if (g_execute_flag == 1) {
+            aos_timer_start(&duttimer);
+        }
+
+        g_execute_flag = 0;
+
         while (g_dut_queue_num == 0);
+
         aos_queue_recv(&g_dut_queue, 0, msg_recv, &size_recv);
         g_dut_queue_num = (aos_queue_get_count(&g_dut_queue));
 
         if (0 == is_at_cmd(msg_recv)) {
+            irqnum = retain_irq();
             dtm_test_loop(msg_recv, size_recv);
+            set_irq(irqnum);
         } else {
             dut_test_at(msg_recv);
         }
@@ -315,19 +353,23 @@ int ble_dut_start(void)
     dut_at_cmd_init();
 
     /* close wdt */
+    extern void boot_wdt_close(void);
     boot_wdt_close();
 
     /* init queue for uart data transimit */
     ret = aos_queue_new(&g_dut_queue, dut_queue_buf, CONFIG_QUEUE_BUF_SIZE, CONFIG_UART_BUF_SIZE);
+
     if (ret) {
         printf("queue new error\r\n");
         return -1;
     }
+
     /* config uart pin function */
     config_uart_pin();
 
     /* config uart for AT cmd input */
     ret = dut_uart_init(&g_dut_uart_cfg);
+
     if (ret) {
         printf("queue new error\r\n");
         return -1;

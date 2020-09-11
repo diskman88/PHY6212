@@ -107,10 +107,11 @@ static inline void dw_iic_set_addr_mode(dw_iic_priv_t *iic_priv, iic_address_mod
     dw_iic_reg_t *addr = (dw_iic_reg_t *)(iic_priv->base);
 
     if (iic_priv->mode == IIC_MODE_MASTER) {
-        uint16_t temp = addr->IC_TAR;
-        temp &= 0xefff;
-        temp |= addr_mode << 12;
-        addr->IC_TAR = temp;
+        if (addr_mode == IIC_ADDRESS_10BIT) {
+            addr->IC_CON |= DW_IIC_CON_10BITADDR_MASTER;
+        } else {
+            addr->IC_CON &= ~DW_IIC_CON_10BITADDR_MASTER;
+        }
     } else {
         if (addr_mode == IIC_ADDRESS_10BIT) {
             addr->IC_CON |= DW_IIC_CON_10BITADDR_SLAVE;

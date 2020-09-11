@@ -139,6 +139,7 @@ timer_handle_t csi_timer_initialize(int32_t idx, timer_event_cb_t cb_event)
     if (g_timer_active_num == 0) {
         clk_gate_enable(MOD_TIMER);
         drv_irq_register(timer_priv->irq, handler);
+        timer_deactive_control(addr);
         drv_irq_enable(timer_priv->irq);
         g_timer_active_num++;
     }
@@ -256,7 +257,7 @@ int32_t csi_timer_start(timer_handle_t handle)
     uint32_t min_us = drv_get_timer_freq() / 1000000;
     uint32_t load;
 
-    if (timer_priv->timeout > 0xffffffff / min_us) {
+    if (timer_priv->timeout > 0xffffff / min_us) {
         return ERR_TIMER(DRV_ERROR_PARAMETER);
     }
 
@@ -269,10 +270,10 @@ int32_t csi_timer_start(timer_handle_t handle)
     dw_timer_reg_t *addr = (dw_timer_reg_t *)(timer_priv->base);
 
     if (timer_priv->timeout == 0) {
-        addr->TxLoadCount = 0xffffffff;                           /* load time(us) */
+        addr->TxLoadCount = 0xffffff;                           /* load time(us) */
     } else {
         if ((addr->TxControl | 0x2) == 0x2) {
-            addr->TxLoadCount = 0xffffffff;                           /* load time(us) */
+            addr->TxLoadCount = 0xffffff;                           /* load time(us) */
         } else {
             addr->TxLoadCount = load;                           /* load time(us) */
         }

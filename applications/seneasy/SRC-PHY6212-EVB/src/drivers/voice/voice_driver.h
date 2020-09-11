@@ -18,7 +18,7 @@ extern "C" {
  *                              Macros
  *============================================================================*/
 #define VOICE_PCM_DATA_LEN  MAX_VOICE_WORD_SIZE
-#define VOICE_FIFO_MAX_SIZE 50  /* voice queue length based on send units */
+#define VOICE_FIFO_MAX_SIZE 25  /* voice queue length based on send units */
 
 #define SW_SBC_ENC          0
 #define SW_IMA_ADPCM_ENC    1

@@ -77,7 +77,7 @@ void init_config(void)
     //------------------------------------------------------------------------
     // wakeup advance time, in us
 
-    pGlobal_config[WAKEUP_ADVANCE] = 2350;//650;//600;//310;
+    pGlobal_config[WAKEUP_ADVANCE] = 1350;//650;//600;//310;
 
     if (g_system_clk == SYS_CLK_XTAL_16M) {
         pGlobal_config[WAKEUP_DELAY] = 16;
@@ -230,7 +230,7 @@ void init_config(void)
     pGlobal_config[LL_NOCONN_ADV_EST_TIME] = 1400;
     pGlobal_config[LL_NOCONN_ADV_MARGIN] = 600;
 
-    pGlobal_config[LL_SEC_SCAN_MARGIN] = 2500;//1400;
+    pGlobal_config[LL_SEC_SCAN_MARGIN] = 2500; //1400;  to avoid mesh proxy llTrigErr 0x15
     pGlobal_config[LL_MIN_SCAN_TIME] = 2000;
 }
 
@@ -244,10 +244,11 @@ void hal_rfphy_init(void)
     //============config RF Frequency Offset
     g_rfPhyFreqOffSet   = RF_PHY_FREQ_FOFF_N80KHZ;
 
-    int8_t freq_off = *(volatile uint32_t *)(0x11004020);
+    uint32_t  freq_off = 0;
+    freq_off  = *(volatile uint32_t *)(0x11004020);
 
-    if (freq_off != 0xff) {
-        g_rfPhyFreqOffSet = freq_off;
+    if (((freq_off >> 16) & 0xFF) == 0xA5) {
+        g_rfPhyFreqOffSet = freq_off & 0xFF;
     }
 
     ble_init();

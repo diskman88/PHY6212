@@ -33,28 +33,10 @@
 #define __DUT_COMMON_H_
 
 #define CONFIG_UART_BUF_SIZE  128
-#define CONFIG_QUEUE_COUNT    30
+#define CONFIG_QUEUE_COUNT    2
 
 #define  CONFIG_QUEUE_BUF_SIZE             (CONFIG_QUEUE_COUNT * CONFIG_UART_BUF_SIZE)
 
-extern void board_ble_init(void);
-extern void feed_wdt(void);
-extern void boot_wdt_close(void);
-extern void enableSleepInPM(uint8_t flag);
 
-/*
-    Disable LPM according to bit value of flag
-*/
-extern void disableSleepInPM(uint8_t flag);
-
-/*
-    Enable LPM if all bits value of flag is 0
-*/
-extern void enableSleepInPM(uint8_t flag);
-
-extern void mdelay(uint32_t ms);
-
-aos_queue_t  g_dut_queue;
-volatile uint8_t g_dut_queue_num;
 
 #endif

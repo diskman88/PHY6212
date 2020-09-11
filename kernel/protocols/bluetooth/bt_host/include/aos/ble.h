@@ -123,6 +123,7 @@ typedef enum {
     EVENT_SMP_PASSKEY_ENTER,
     EVENT_SMP_PAIRING_CONFIRM,
     EVENT_SMP_PAIRING_COMPLETE,
+    EVENT_SMP_KEY_MISS,
     EVENT_SMP_CANCEL,
 
     EVENT_STACK_UNKNOWN,
@@ -478,6 +479,12 @@ typedef enum {
     SECURITY_FIPS,
 } security_en;
 
+typedef enum {
+    PREF_PHY_1M = 0x01,
+    PREF_PHY_2M = 0x02,
+    PREF_PHY_CODED = 0x04,
+} pref_phy_en;
+
 int ble_stack_init(init_param_t *param);
 int ble_stack_set_name(const char *name);
 int ble_stack_iocapability_set(uint8_t io_cap);
@@ -517,7 +524,8 @@ int ble_stack_white_list_add(dev_addr_t *peer_addr);
 int ble_stack_white_list_remove(dev_addr_t *peer_addr);
 int ble_stack_white_list_size();
 int ble_stack_check_conn_params(const conn_param_t *param);
-
+int ble_stack_pref_phy_set(int16_t conn_handle, pref_phy_en pref_tx_phy, pref_phy_en pref_rx_phy);
+int ble_stack_paired_dev_foreach(void (*func)(dev_addr_t *addr, void *data), void *data);
 
 #ifdef __cplusplus
 }

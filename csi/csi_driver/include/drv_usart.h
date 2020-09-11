@@ -417,6 +417,7 @@ void csi_usart_wakeup_sleep_action(int32_t idx);
   \param[in]   flowctrl_type   flow control type.\ref usart_flowctrl_type_e.
   \return      error code
 */
+
 int32_t csi_usart_config_flowctrl(usart_handle_t handle,
                                   usart_flowctrl_type_e flowctrl_type);
 

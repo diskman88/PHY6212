@@ -36,7 +36,7 @@ extern "C" {
 #define DW_TIMER_TXCONTROL_MODE        (1UL << 1)
 #define DW_TIMER_TXCONTROL_INTMASK     (1UL << 2)
 
-#define DW_TIMER_INIT_DEFAULT_VALUE     (0xffffffff / drv_get_timer_freq() * 1000000)
+#define DW_TIMER_INIT_DEFAULT_VALUE     (0xffffff / (drv_get_timer_freq() / 1000000))
 
 typedef struct {
     __IOM uint32_t TxLoadCount;              /* Offset: 0x000 (R/W)  Receive buffer register */

@@ -43,6 +43,23 @@ static volatile uint8_t tx_async_flag = 0;
 unsigned char dut_uart_buf[CONFIG_UART_BUF_SIZE - 1] __attribute__((section("noretention_mem_area0")));
 static volatile uint8_t uart_rcv_len = 0;
 static volatile uint8_t at_rcv_flag = 0;
+volatile uint8_t g_dut_queue_num;
+aos_queue_t  g_dut_queue;
+extern volatile uint8_t g_execute_flag;
+extern aos_timer_t duttimer;
+
+void uart_timeout(void *arg1, void *arg2)
+{
+    if((uart_rcv_len > 2) && (at_rcv_flag != 0))
+    {
+        dut_uart_buf[uart_rcv_len] = '\0';
+        aos_queue_send(&g_dut_queue, dut_uart_buf, uart_rcv_len);
+        g_dut_queue_num = (aos_queue_get_count(&g_dut_queue));
+        memset(dut_uart_buf, 0, sizeof(dut_uart_buf));
+        uart_rcv_len = 0;
+        at_rcv_flag = 0;
+    }
+}
 
 void usart_event_cb_query(int32_t idx, uint32_t event)
 {
@@ -64,15 +81,15 @@ void usart_event_cb_query(int32_t idx, uint32_t event)
 
             tmp_len = csi_usart_receive_query(g_usart_handle, data, sizeof(data));
 
-            if ((tmp_len > 2 ) && (data[tmp_len - 1] != 0xd)  && (data[tmp_len - 1] != '\0') && (at_rcv_flag == 0)) {
+            if ((tmp_len > 2 ) && (data[tmp_len - 1] != 0xd) && (data[tmp_len - 2] != 0xd) && (at_rcv_flag == 0)) {
                 /* this is first pack of at cmd */
                 for (int i = 0; i < tmp_len; i++) {
                     dut_uart_buf[i] = data[i];
                 }
                 uart_rcv_len = tmp_len;
                 at_rcv_flag = 1;
+                g_execute_flag = 1;
             } else if (at_rcv_flag == 1) {
-
                 /* this is continue pack of at cmd */
                 if (tmp_len > (CONFIG_UART_BUF_SIZE - tmp_len - 1)) {
                     /* over flow, clear buf */
@@ -86,22 +103,29 @@ void usart_event_cb_query(int32_t idx, uint32_t event)
 
                 uart_rcv_len += tmp_len;
 
-                if ((dut_uart_buf[uart_rcv_len - 1] == 0xd) || (dut_uart_buf[uart_rcv_len - 1] == '\0')) {
+                if ((uart_rcv_len > 2) && ((dut_uart_buf[uart_rcv_len - 1] == 0xd) || (dut_uart_buf[uart_rcv_len - 2] == 0xd))){
                     at_rcv_flag = 0;
-                    dut_uart_buf[uart_rcv_len - 1] = '\0';
+                    if(dut_uart_buf[uart_rcv_len - 1] == 0xd){
+                        dut_uart_buf[uart_rcv_len - 1] = '\0';
+                    }else{
+                        dut_uart_buf[uart_rcv_len - 1] = '\0';
+                        dut_uart_buf[uart_rcv_len - 2] = '\0';
+                    }
                     aos_queue_send(&g_dut_queue, dut_uart_buf, uart_rcv_len);
                     g_dut_queue_num = (aos_queue_get_count(&g_dut_queue));
                     memset(dut_uart_buf, 0, sizeof(dut_uart_buf));
                     uart_rcv_len = 0;
-
                 } else {
                     //wait for at end
                     break;
                 }
             } else {
-                if ((data[tmp_len - 1] == 0xd) || (data[tmp_len - 1] == '\0')){
+                if (tmp_len > 2 && data[tmp_len - 1] == 0xd){
                     data[tmp_len - 1] = '\0';
-                } else {
+                }else if(tmp_len > 2 && data[tmp_len - 2] == 0xd){
+                    data[tmp_len - 1] = '\0';
+                    data[tmp_len - 2] = '\0';
+                }else {
                     data[tmp_len] = '\0';
                 }
                 uart_rcv_len = tmp_len;
@@ -141,6 +165,9 @@ int dut_uart_init(dut_uart_cfg_t *uart_cfg)
         printf("csi_usart_config error %x\n", ret);
         return -1;
     }
+
+    aos_timer_new_ext(&duttimer, uart_timeout, NULL, 50, 0, 0);
+
     return 0;
 }
 
