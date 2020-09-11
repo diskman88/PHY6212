@@ -108,6 +108,8 @@ void on_msg_key(kscan_key_t vk, int16_t state)
     }
 }
 
+short test_pcm_data[256] = {0,1,2,3,4,5,6,7,8,9,10};
+
 void event_handler_voice()
 {
     voice_trans_frame_t frame;
@@ -124,6 +126,7 @@ void event_handler_voice()
         //    如果发送失败(数据缓冲区满)，退出本次发送
         //    如果发送成功，队列弹出一位
         if (atvv_voice_send((uint8_t *)&frame, sizeof(voice_trans_frame_t))) {
+        // if (atvv_voice_send(test_pcm_data, 150)) {
             err++;
             break;
         } else {   

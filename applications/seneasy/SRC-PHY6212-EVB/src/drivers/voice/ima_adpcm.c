@@ -42,7 +42,8 @@ static const int stepsizeTable[89] = {
     15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
 };
 
-void __attribute__((section("retention_mem_area0"))) ima_adpcm_encoder(short *p_pcm_data, char *p_adpcm_data, int len)
+void __attribute__((section(".data_text"))) ima_adpcm_encoder(short *p_pcm_data, char *p_adpcm_data, int len)
+// void ima_adpcm_encoder(short * p_pcm_data, char *p_adpcm_data, int len)
 {
     short *inp;			/* Input buffer pointer */
     signed char *outp;	/* output buffer pointer */

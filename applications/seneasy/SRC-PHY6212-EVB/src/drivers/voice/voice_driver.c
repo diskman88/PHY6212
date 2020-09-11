@@ -37,8 +37,6 @@ static uint16_t trans_seq_id;
  * @param evt 
  */
 
-short test_pcm_data[256] = {0,1,2,3,4,5,6,7,8,9,10};
-
 static void voice_pcm_truck_cb(voice_Evt_t *evt) 
 {
     if (evt->type == HAL_VOICE_EVT_FAIL) {
@@ -56,9 +54,8 @@ static void voice_pcm_truck_cb(voice_Evt_t *evt)
         // phy_gpio_write(GPIO_P23, (trans_seq_id & 0x01));
         trans_seq_id++;
 #else
-        phy_gpio_write(GPIO_P23, 0);
         voice_trans_frame_t new_frame;
-        ima_adpcm_encoder(evt->data, new_frame.encode_data, MAX_VOICE_WORD_SIZE);
+        ima_adpcm_encoder((short *)(evt->data), new_frame.encode_data, MAX_VOICE_WORD_SIZE);
         // ima_adpcm_encoder(test_pcm_data, new_frame.encode_data, MAX_VOICE_WORD_SIZE);
         // memcpy(new_frame.encode_data, test_pcm_data, 128);
         // memcpy(new_frame.encode_data, evt->data, 128);
