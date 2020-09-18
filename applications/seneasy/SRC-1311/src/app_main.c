@@ -32,10 +32,10 @@
 #include "drivers/leds.h"
 #include "drivers/keyscan.h"
 #include "drivers/voice/voice_driver.h"
-#include "services/hid_service.h"
+// #include "services/hid_service.h"
 // 系统接口
 #include "app_msg.h"
-#include "gap.h"
+#include "profiles/gap.h"
 #include "send_key.h"
 
 #define TAG  "APP"
@@ -97,12 +97,14 @@ void on_msg_key(kscan_key_t vk, int16_t state)
     if (g_gap_data.state == GAP_STATE_PAIRED || g_gap_data.state == GAP_STATE_CONNECTED) {
         if (state == MSG_KEYSCAN_KEY_PRESSED) {
             int err = 0;
-            err = rcu_send_hid_key_down(vk);    // ble连接已连接：按键发送HID键码
+            // err = rcu_send_hid_key_down(vk);    // ble连接已连接：按键发送HID键码
+            err = rcu_send_key_down(vk);
             if (err == 0) {
                 rcu_led_red_on();
             }
         } else {
-            rcu_send_hid_key_release();
+            // rcu_send_hid_key_release();
+            rcu_send_key_release(vk);
             rcu_led_red_off();
         }
     }

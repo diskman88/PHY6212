@@ -24,10 +24,10 @@ L_SRCS += init/cli_cmd.c \
           init/init.c
 
 # application
-L_SRCS += app_main.c app_msg.c gap.c send_key.c
+L_SRCS += app_main.c app_msg.c send_key.c
 
 # ble services
-SRC_BLE_SERVICES = $(addprefix services/, $(notdir $(wildcard src/services/*.c)))
+SRC_BLE_PROFILES = $(addprefix profiles/, $(notdir $(wildcard src/profiles/*.c)))
 # $(warning $(wildcard src/services/*.c))
 
 # drivers
@@ -37,7 +37,7 @@ SRC_DRVERS =  drivers/keyscan.c \
               drivers/ir_nec.c \
               drivers/leds.c
 
-L_SRCS += ${SRC_BLE_SERVICES} ${SRC_DRVERS}
+L_SRCS += ${SRC_BLE_PROFILES} ${SRC_DRVERS}
 
 L_INCS := include \
           ../../../csi/csi_kernel/rhino/core/include \
