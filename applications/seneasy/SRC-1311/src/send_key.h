@@ -13,10 +13,9 @@
 #define _SEND_KEY_H
 
 #include "drivers/keyscan.h"
-#include "drivers/ir_nec.h"
-#include "services/hid_service.h"
+#include "profiles/hid_service.h"
 
-#define RCU_KEY_NUM     13
+#define RCU_KEY_NUM     12
 /*****************************************
  * | 键名  | code | IR | HID |
  * | :--- | :---: | :---: | :---: |
@@ -35,19 +34,12 @@
  * | Voice| S4  | 0x61 | 0x0075 |
  ****************************************/
 
-typedef struct send_key
-{
-    // 键盘扫描的扫描码
-    kscan_key_t vk;    
-    // 对应要发送的HID按键键值
-    press_key_data hid_key;
-    // 对应要发送的IR键值
-    uint8_t ir_key;
-}rcu_key_map_t;
+// int rcu_send_hid_key_down(kscan_key_t vk);
+// int rcu_send_hid_key_release();
+// int rcu_send_ir_key_down(kscan_key_t vk);
+// int rcu_send_ir_key_release();
 
-int rcu_send_hid_key_down(kscan_key_t vk);
-int rcu_send_hid_key_release();
-int rcu_send_ir_key_down(kscan_key_t vk);
-int rcu_send_ir_key_release();
+int rcu_send_key_down(kscan_key_t vk);
+int rcu_send_key_release(kscan_key_t vk);
 
 #endif
