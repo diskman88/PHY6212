@@ -7,7 +7,7 @@
 #include "ll_def.h"
 #include "yoc/uart_server.h"
 
-#include "../gap.h"
+#include "gap.h"
 #include "atvv_service.h"
 #include "../app_msg.h"
 
