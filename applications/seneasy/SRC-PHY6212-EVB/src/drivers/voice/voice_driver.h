@@ -18,7 +18,7 @@ extern "C" {
  *                              Macros
  *============================================================================*/
 #define VOICE_PCM_DATA_LEN  MAX_VOICE_WORD_SIZE
-#define VOICE_FIFO_MAX_SIZE 25  /* voice queue length based on send units */
+#define VOICE_FIFO_MAX_SIZE 50  /* voice queue length based on send units */
 
 #define SW_SBC_ENC          0
 #define SW_IMA_ADPCM_ENC    1
@@ -44,9 +44,10 @@ typedef struct
 {
     // 传输id
     uint16_t seq_id;
-    char reserved;
+    // char reserved;
     // adpcm编码
-    adpcm_state_t state;        // adpcm编码状态
+    // adpcm_state_t state;        // adpcm编码状态
+    char adpcm_state[3];
     char encode_data[128];       // 音频编码数据
 }voice_trans_frame_t;
 #endif

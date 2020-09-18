@@ -60,11 +60,14 @@ static void voice_pcm_truck_cb(voice_Evt_t *evt)
         // memcpy(new_frame.encode_data, test_pcm_data, 128);
         // memcpy(new_frame.encode_data, evt->data, 128);
         new_frame.seq_id = trans_seq_id++;
-        new_frame.reserved = 0x01;
+        // new_frame.reserved = 0x01;
         //test
         // ima_adpcm_global_state.index = 2;
         // ima_adpcm_global_state.valprev = 3;
-        new_frame.state = ima_adpcm_global_state;
+        // new_frame.state = ima_adpcm_global_state;
+        new_frame.adpcm_state[0] = (char)(ima_adpcm_global_state.valprev & 0x00FF);
+        new_frame.adpcm_state[1] = (char)(ima_adpcm_global_state.valprev >> 8 & 0x00FF);
+        new_frame.adpcm_state[2] = ima_adpcm_global_state.index;
         if (voice_fifo_in(&new_frame) == false) {
             voice_handle_mic_stop();
             LOGE("VOICE", "voice fifo full");
@@ -88,7 +91,8 @@ bool  voice_init()
     cfg.amicGain = 10;
     cfg.voiceGain = 40;
     cfg.voiceEncodeMode = VOICE_ENCODE_BYP;
-    cfg.voiceRate = VOICE_RATE_8K;
+    // cfg.voiceRate = VOICE_RATE_8K;
+    cfg.voiceRate = VOICE_RATE_16K;
     cfg.voiceAutoMuteOnOff = false;
     phy_voice_config(cfg, voice_pcm_truck_cb);
 
