@@ -210,7 +210,7 @@ int rcu_send_key_down(kscan_key_t vk)
             }
             if (key->mm_report != NULL) {
                 is_key_down_mm = true;
-                memcpy(&consumer, &mm_voice_open, sizeof(hid_consumer_report_t));
+                memcpy(&consumer, key->mm_report, sizeof(hid_consumer_report_t));
                 return hids_send_consumer(&consumer);
             }
         }
