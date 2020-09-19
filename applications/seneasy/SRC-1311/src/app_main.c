@@ -75,24 +75,27 @@ void cli_reg_cmd_keysend(void)
  */
 void on_msg_key(kscan_key_t vk, int16_t state)
 {
-    // 0.特殊按键处理:power
-    if (vk == VK_KEY_01) {
-        if (state == MSG_KEYSCAN_KEY_PRESSED) {
-            if (g_gap_data.state != GAP_STATE_CONNECTED || g_gap_data.state != GAP_STATE_PAIRED) {
-                rcu_ble_start_adversting(ADV_START_POWER_KEY);
+    // 0.任意键按下
+    if (state != MSG_KEYSCAN_KEY_RELEASE_ALL || state != MSG_KEYSCAN_KEY_RELEASE_ALL) {
+        if (g_gap_data.state == GAP_STATE_IDLE) {   // 处于未连接,未广播状态
+            if (g_gap_data.bond.is_bonded) {    // 设备已绑定主机
+                rcu_ble_start_adversting(ADV_START_RECONNECT);
+            } else {
+                if (vk == VK_KEY_01) {  // 只有电源键发起非直连广播
+                    rcu_ble_start_adversting(ADV_START_POWER_KEY);
+                }
             }
         }
     }
-    // 1.功能键(组合键:10+3)按下处理
-    if (vk == VK_KEY_FUNC1) {
-        if (state == MSG_KEYSCAN_KEY_PRESSED) {
-            rcu_ble_start_adversting(ADV_START_PAIRING_KEY);
-        }
-
-        if (state == MSG_KEYSCAN_KEY_HOLD) {
-            rcu_ble_clear_pairing();
-        }
+    // 1.功能键(组合键:HOME[S3]+MENU[S11]):启动广播
+    if (vk == VK_KEY_FUNC1 && state == MSG_KEYSCAN_KEY_HOLD) {
+        rcu_ble_start_adversting(ADV_START_PAIRING_KEY);
+    }
+    // 2.功能键(组合键:OK[S6]+MENU[S11]):清除配对
+    if (vk == VK_KEY_FUNC2 && state == MSG_KEYSCAN_KEY_HOLD) {
+        rcu_ble_clear_pairing();
     } 
+    
     // 发码键处理
     if (g_gap_data.state == GAP_STATE_PAIRED || g_gap_data.state == GAP_STATE_CONNECTED) {
         if (state == MSG_KEYSCAN_KEY_PRESSED) {
