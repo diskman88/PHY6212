@@ -84,44 +84,43 @@ static ad_data_t app_adv_data_power[5] = {
 };
 
 #define KEY_BOND_INFO   "BOND"
-bond_info_t bond_info = {0};
 static bool bond_info_save(dev_addr_t *p_remote_addr)
 {
     int ret;
-    bond_info.is_bonded = true; 
-    memcpy(&bond_info.remote_addr, p_remote_addr, sizeof(dev_addr_t));
-    ret = aos_kv_set(KEY_BOND_INFO, (void *)&bond_info, sizeof(bond_info_t), 1);
+    g_gap_data.bond.is_bonded = true; 
+    memcpy(&g_gap_data.bond.remote_addr, p_remote_addr, sizeof(dev_addr_t));
+    ret = aos_kv_set(KEY_BOND_INFO, (void *)&g_gap_data.bond, sizeof(bond_info_t), 1);
     if (ret != 0) {
         LOGE("bond", "can`t write bond info, err=%d",ret);
-        bond_info.is_bonded = false;
+        g_gap_data.bond.is_bonded = false;
         return false;
     }
     ret = ble_stack_white_list_add(p_remote_addr);
     if (ret != 0) {
         LOGE("bond", "add whitelist failed, err=%d", ret);
-        bond_info.is_bonded = false;
+        g_gap_data.bond.is_bonded = false;
         return false;
     }
-    bond_info.is_bonded = true;
+    g_gap_data.bond.is_bonded = true;
     return true;
 }
 
 static bool bond_info_load()
 {
     int len,ret;
-    bond_info.is_bonded = false;
-    ret = aos_kv_get(KEY_BOND_INFO, (void *)&bond_info, &len);
+    g_gap_data.bond.is_bonded = false;
+    ret = aos_kv_get(KEY_BOND_INFO, (void *)&g_gap_data.bond, &len);
     if (ret != 0 || len == sizeof(bond_info_t)) {
         LOGI("bond", "no bond info find");
         return false;
     } else {
         LOGI("bond", "has bonded with device::%02x-%02x-%02x-%02x-%02x-%02x", 
-                                            bond_info.remote_addr.val[0],
-                                            bond_info.remote_addr.val[1],
-                                            bond_info.remote_addr.val[2],
-                                            bond_info.remote_addr.val[3],
-                                            bond_info.remote_addr.val[4],
-                                            bond_info.remote_addr.val[5]);
+                                            g_gap_data.bond.remote_addr.val[0],
+                                            g_gap_data.bond.remote_addr.val[1],
+                                            g_gap_data.bond.remote_addr.val[2],
+                                            g_gap_data.bond.remote_addr.val[3],
+                                            g_gap_data.bond.remote_addr.val[4],
+                                            g_gap_data.bond.remote_addr.val[5]);
         return true;
     }   
 }
@@ -135,14 +134,14 @@ static bool bond_info_remove()
         return false;
     }
 
-    ret = ble_stack_white_list_remove(&bond_info.remote_addr);
+    ret = ble_stack_white_list_remove(&g_gap_data.bond.remote_addr);
     if (ret != 0) {
         LOGE("bond", "ble stack remove whitelist failed, err=%d", ret);
         return false;
     }
 
-    bond_info.is_bonded = false;
-    ret = aos_kv_set(KEY_BOND_INFO, (void *)&bond_info, sizeof(bond_info_t), 1);
+    g_gap_data.bond.is_bonded = false;
+    ret = aos_kv_set(KEY_BOND_INFO, (void *)&g_gap_data.bond, sizeof(bond_info_t), 1);
     if (ret != 0) {
         LOGE("bond", "kv can`t remove bond info");
         return false;
@@ -248,7 +247,6 @@ static void gap_event_smp_pairing_complete(evt_data_smp_pairing_complete_t *even
 {
     if (event_data->err == 0) {
         g_gap_data.state = GAP_STATE_PAIRED;
-        g_gap_data.paired_addr = event_data->peer_addr;
         if (event_data->bonded ) {
             bond_info_save(&(event_data->peer_addr));
             LOGI(TAG, "bond with remote device:%02x-%02x-%02x-%02x-%02x-%02x",   
@@ -511,10 +509,10 @@ int rcu_ble_start_adversting(adv_start_reson_t reson)
              *  2.如果没有配对,发普通非直连广播
              */
             case ADV_START_POWER_ON:
-                if (bond_info_load() && bond_info.is_bonded) {
+                if (bond_info_load() && g_gap_data.bond.is_bonded) {
                     param.type = ADV_DIRECT_IND;
                     param.filter_policy = ADV_FILTER_POLICY_ALL_REQ;
-                    param.direct_peer_addr = bond_info.remote_addr;
+                    param.direct_peer_addr = g_gap_data.bond.remote_addr;
                 } else {
                     param.type = ADV_IND;
                     param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;
@@ -543,10 +541,10 @@ int rcu_ble_start_adversting(adv_start_reson_t reson)
              * 
              */
             case ADV_START_RECONNECT:
-                if (bond_info.is_bonded) {
+                if (g_gap_data.bond.is_bonded) {
                     param.type = ADV_DIRECT_IND;
                     param.filter_policy = ADV_FILTER_POLICY_ALL_REQ;
-                    param.direct_peer_addr = bond_info.remote_addr;                    
+                    param.direct_peer_addr = g_gap_data.bond.remote_addr;                    
                 } else {
                     param.type = ADV_IND;
                     param.filter_policy = ADV_FILTER_POLICY_ANY_REQ;                    
@@ -604,7 +602,7 @@ int rcu_ble_clear_pairing()
     //     }
     // }
     // 4.清除配对信息
-    if (bond_info.is_bonded) {
+    if (g_gap_data.bond.is_bonded) {
         if(bond_info_remove()) {
             LOGI("GAP", "remove bond info success");
         } else {

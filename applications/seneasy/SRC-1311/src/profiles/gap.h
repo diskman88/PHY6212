@@ -31,24 +31,26 @@ typedef enum {
     GAP_STATE_DISCONNETED,    /* temporary status of disconnecting */
 }gap_state_t;
 
-typedef struct 
-{
-    gap_state_t state;
-    adv_type_en ad_type;
-    int16_t conn_handle;        // 链接id
-    dev_addr_t paired_addr;     // 当前配对地址
-    int mtu_size;
-    ota_state_en ota_state;
-    bas_handle_t h_bas;
-    // hids_handle_t *hids;
-    atvv_service_t *p_atvv;
-}ble_gap_state_t;
 
 typedef struct 
 {
     bool is_bonded;
     dev_addr_t remote_addr;
 }bond_info_t;
+
+typedef struct 
+{
+    gap_state_t state;
+    adv_type_en ad_type;
+    int16_t conn_handle;        // 链接id
+    bond_info_t bond;
+    // dev_addr_t paired_addr;     // 当前配对地址
+    int mtu_size;
+    ota_state_en ota_state;
+    bas_handle_t h_bas;
+    // hids_handle_t *hids;
+    atvv_service_t *p_atvv;
+}ble_gap_state_t;
 
 typedef enum {
     ADV_START_POWER_ON,
@@ -60,8 +62,6 @@ typedef enum {
 
 
 extern ble_gap_state_t g_gap_data;
-
-extern bond_info_t bond_info;
 
 int rcu_ble_init();
 

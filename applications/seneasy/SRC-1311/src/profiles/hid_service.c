@@ -438,7 +438,7 @@ int hids_send_consumer(hid_consumer_report_t * p_report)
     }
 
     if (hids_composite.ccc_consumer == CCC_VALUE_NOTIFY) {
-        return ble_stack_gatt_notificate(hids_composite.conn_handle, hids_composite.svc_handle + HIDS_IDX_REPORT_CONSUMER_VAL, (uint8_t *)p_report, sizeof(hid_mouse_report_t));
+        return ble_stack_gatt_notificate(hids_composite.conn_handle, hids_composite.svc_handle + HIDS_IDX_REPORT_CONSUMER_VAL, (uint8_t *)p_report, sizeof(hid_consumer_report_t));
     } else {
         return -BLE_STACK_ERR_NULL;
     }    
