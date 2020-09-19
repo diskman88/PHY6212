@@ -11,12 +11,13 @@ def main():
     subparser = parse.add_subparsers(dest="subcommands", title="subcommands", description="支持的操作", help="select the task")
     # 子命令:flash
     parser_flash = subparser.add_parser("flash", help="下载固件")
-    parser_flash.add_argument("-f", "--firmwave", dest="firmware")
+    parser_flash.add_argument("-f", "--firmwave", dest="firmware", help="固件")
+    parser_flash.add_argument("-a", "--mac", dest="mac", help="mac地址:XX-XX-XX-XX-XX-XX")
     parser_flash.set_defaults(func=flash)
     # 子命令:MAC
-    parse_mac = subparser.add_parser("MAC", help="写入mac地址")
-    parse_mac.add_argument("-a", "--address", dest="address", help="XX-XX-XX-XX-XX-XX")
-    parse_mac.set_defaults(func=write_mac)
+    # parse_mac = subparser.add_parser("MAC", help="写入mac地址")
+    # parse_mac.add_argument("-a", "--address", dest="address", help="XX-XX-XX-XX-XX-XX")
+    # parse_mac.set_defaults(func=write_mac)
 
     args = parse.parse_args()
     print(args)
@@ -32,6 +33,11 @@ def main():
 def flash(args): 
     # hexFile = "generated/total_image.hex"
     # phy = PhyDownloader('/dev/ttyUSB0', hexFile)
+    if (args.firmware == None or os.path.isfile(args.firmware) == False):
+        raise Exception("no firmware find")
+    if args.mac == None:
+        args.mac = "09-05-02-07-00-01"
+
     phy = PhyDownloader(args.port, args.firmware)
     # phy = PhyDownloader('COM11', hexFile)
     phy.reset(boot=True)
@@ -42,13 +48,19 @@ def flash(args):
     phy.write_cpnum(10)
 
     segments = phy.hex.segments()
-
     for seg in segments:
         start = seg[0]
         end = seg[1]
         phy.write_bin(start, end)
-
-
+    # write mac address
+    try:
+        mac = [int(x, base=16) for x in args.mac.split('-')]
+        if (len(mac) != 6):
+            raise Exception("mac address format error")
+        bytes_mac = struct.pack("BBBBBB", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5])
+    except:
+        raise Exception("mac address format error")
+    phy.write_mac(bytes_mac)
 
     phy.reset(boot=False)
     phy.serial.close()
