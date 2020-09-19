@@ -36,6 +36,7 @@ enum {
 	KEY_RELEASE,
 	KEY_DOWN,
 	KEY_HOLD,
+	KEY_LOCK,
 	KEY_TIMEOUT
 }KEY_STATES;
 
@@ -44,11 +45,10 @@ typedef struct key_def_t
 	bool is_changed;
 	uint8_t code;
 	uint8_t state;
-	uint8_t resv;
+	uint8_t hold_cnt;
 	uint32_t hold_time_ms;
 }key_def_t;
 
-static bool is_has_changed = false;
 static key_def_t keys[KSCAN_COL_NUM][KSCAN_ROW_NUM];
 static key_def_t * keys_pressed[KSCAN_MAX_KEY_NUM];
 
@@ -115,7 +115,6 @@ void _kscan_delay_us(int us)
 int kscan_read_keycode() 
 {
 	int key_cnt = 0;
-	is_has_changed = false;
 
 	for (int c = 0; c < KSCAN_COL_NUM; c++) {
 		phy_gpio_pin_init(pins_for_col[c], IE);
@@ -147,32 +146,32 @@ int kscan_read_keycode()
 						break;
 					case KEY_DOWN:
 						skey->hold_time_ms += KEYSCAN_INTERVAL_TIME;
-						if (skey->hold_time_ms > KEYSCAN_HOLD_TIME) {
+						if (skey->hold_time_ms > 1000) {	// 按键超过1S
 							skey->state = KEY_HOLD;
+							skey->hold_time_ms = 0;
+							skey->hold_cnt = 1;
 						}
 						break;
-					case KEY_HOLD:
+					case KEY_HOLD:	
+						skey->hold_time_ms += KEYSCAN_INTERVAL_TIME;
+						if (skey->hold_time_ms > 1000) {
+							skey->hold_time_ms = 0;
+							skey->hold_cnt++;
+						}
+						break;
+					case KEY_LOCK:
 						break;
 					default:
 						break;
 				}
-			} else {
-				switch (skey->state)
-				{
-					case KEY_RELEASE:
-						break;
-					case KEY_DOWN:
-					case KEY_HOLD:
-						skey->state = KEY_RELEASE;
-						break;
-					default:
-						break;
-				}				
+			} 
+			// 按键松开,设置按键为release
+			else {
+				skey->state = KEY_RELEASE;
 			}
 			// 状态改变
 			if (skey->state != pre_state) {
 				skey->is_changed = true;
-				is_has_changed = true;
 			} else {
 				skey->is_changed = false;
 			}
@@ -330,17 +329,18 @@ static const uint8_t kscan_one_key_map[14][2] = {
 	{ 0, 0}
 };
 
-static const uint8_t kscan_hold_key_map[2][2] = {
-	//scan code, key code
-	// { 1, VK_KEY_FUNC1 },
-	{ 0, 0 }
+static const uint8_t kscan_hold_key_map[2][3] = {
+	//scan code, key code, hold seconds
+	// { 1, VK_KEY_FUNC1, 2},
+	{ 0, 0, 0}
 };
 
-static const uint8_t kscan_combin_key_map[5][3] = {
-	//scan code1, scan code2, key code
-	{ 10,	3, 		VK_KEY_FUNC1},	
+static const uint8_t kscan_combin_key_map[5][4] = {
+	//scan code1, scan code2, key code, hold times
+	{ 11,	3, 		VK_KEY_FUNC1, 2},	// (home + menu),2S ==>FUNC1
+	{ 11,	6,		VK_KEY_FUNC2, 5},	// (OK + menu), 5S ==>FUNC2
 	// { 5,	2, 		VK_KEY_FUNC2},
-	{ 0, 	0,		0},
+	{ 0, 	0,		0, 0},
 };
 
 kscan_key_t get_one_key(uint8_t code)
@@ -355,7 +355,23 @@ kscan_key_t get_one_key(uint8_t code)
 	return 0;
 }
 
-kscan_key_t get_combin_key(uint8_t code1, uint8_t code2)
+kscan_key_t get_hold_key(uint8_t code, uint8_t sec) 
+{
+	int i = 0;
+	while (kscan_hold_key_map[i][1] != 0) {		// 查表,以0结束
+		if (kscan_hold_key_map[i][0] == code) {	// 找到匹配的code
+			if (kscan_hold_key_map[i][2] <= sec) { // 按键时间需要大于设定
+				return kscan_hold_key_map[i][1];	// 返回该功能键
+			} else {
+				return 0;
+			}
+		}
+		i++;
+	}
+	return 0;	
+}
+
+kscan_key_t get_combin_key(uint8_t code1, uint8_t code2, uint8_t sec)
 {
 	int i = 0;
 	uint8_t temp;
@@ -369,24 +385,17 @@ kscan_key_t get_combin_key(uint8_t code1, uint8_t code2)
 	// 寻找匹配的VK
 	while (kscan_combin_key_map[i][2] != 0) {
 		if (kscan_combin_key_map[i][0] == code1 && kscan_combin_key_map[i][1] == code2 ) {
-			return kscan_combin_key_map[i][2];
+			if (kscan_combin_key_map[i][3] <= sec) {
+				return kscan_combin_key_map[i][2];
+			} else {
+				return 0;
+			}
 		}
 		i++;
 	}
 	return 0;
 }
 
-kscan_key_t get_hold_key(uint8_t code) 
-{
-	int i = 0;
-	while (kscan_hold_key_map[i][1] != 0) {
-		if (kscan_hold_key_map[i][0] == code) {
-			return kscan_hold_key_map[i][1];
-		}
-		i++;
-	}
-	return 0;	
-}
 
 static aos_timer_t kscan_timer = {0};
 void kscan_timer_callback(void *arg1, void *arg2)
@@ -394,8 +403,69 @@ void kscan_timer_callback(void *arg1, void *arg2)
 	aos_sem_signal(&sem_keyscan_start);
 }
 
-// extern uint64_t csi_kernel_get_ticks(void);
-// extern k_status_t csi_kernel_delay_ms(uint32_t ms);
+static bool is_vk_pressed = false;
+
+void kscan_one_key(app_msg_t *msg)
+{
+	if(keys_pressed[0]->is_changed && keys_pressed[0]->state == KEY_DOWN) {	// 单键按下
+		msg->subtype = MSG_KEYSCAN_KEY_PRESSED;
+		msg->param = get_one_key(keys_pressed[0]->code);
+		// 发送系统消息
+		if (msg->param != 0) {
+			if (app_send_message(msg) == false) {
+				LOGE("KEYSCAN", "send message failed");
+				return;
+			}
+			is_vk_pressed = true;
+		}	
+		// if (keys_pressed[0]->state == KEY_HOLD) {		// 单键长按
+		// 	msg.subtype = MSG_KEYSCAN_KEY_HOLD;
+		// 	msg.param = get_one_key(keys_pressed[0]->code, keys_pressed[0]->hold_cnt);
+		// 	// 发送系统消息
+		// 	if (msg.param != 0) {
+		// 		if (app_send_message(&msg) == false) {
+		// 			LOGE("KEYSCAN", "send message failed");
+		// 		}
+		// 		is_vk_pressed = true;
+		// 	}	
+		// }
+		// LOGI("KEYSCAN", "vk: 1 key pressed:%2X, scan code = %d", msg.param, keys_pressed[0]->code);
+	}
+}
+
+void kscan_two_key(app_msg_t *msg)
+{
+	// 双键按下
+	if (keys_pressed[0]->is_changed || keys_pressed[1]->is_changed) {
+		// if (keys_pressed[0]->state == KEY_DOWN && keys_pressed[1]->state == KEY_DOWN) {
+		// 	msg.subtype = MSG_KEYSCAN_KEY_PRESSED;
+		// 	msg.param = get_combin_key(keys_pressed[0]->code, keys_pressed[1]->code);
+		// 	// 发送系统消息
+		// 	if (msg.param != 0) {
+		// 		if (app_send_message(&msg) == false) {
+		// 			LOGE("KEYSCAN", "send message failed");
+		// 		}
+		// 		is_vk_pressed = true;
+		// 	}
+		// }	
+	}
+	// 双键长按
+	if (keys_pressed[0]->state == KEY_HOLD && keys_pressed[1]->state == KEY_HOLD) {
+		msg->subtype = MSG_KEYSCAN_KEY_HOLD;
+		msg->param = get_combin_key(keys_pressed[0]->code, keys_pressed[1]->code, keys_pressed[0]->hold_cnt);
+		// 发送系统消息
+		if (msg->param != 0) {
+			keys_pressed[0]->state = KEY_LOCK;
+			keys_pressed[1]->state = KEY_LOCK;
+			if (app_send_message(msg) == false) {
+				LOGE("KEYSCAN", "send message failed");
+				return;
+			}
+			is_vk_pressed = true;
+		}
+	}				
+}
+
 /**
  * @brief keyscan主线程
  * 
@@ -425,8 +495,6 @@ void keyscan_task(void * args)
 	
 	LOGI("KEYSCAN", "key scan start");
 
-	bool is_vk_pressed = false;
-	
 	while(1) {
 		// 按键状态发生改变,扫描获取按键信息,由2种事件触发:
 		// 	1.睡眠状态唤醒
@@ -444,6 +512,7 @@ void keyscan_task(void * args)
 		is_vk_pressed = false;
 		// 开始读取按键值
 		while (1) {
+			uint64_t start = aos_now_ms();
 			// 扫描按键,获取扫描码和按键个数
 			uint8_t key_num = kscan_read_keycode();
 			// 无按键按下:
@@ -454,79 +523,24 @@ void keyscan_task(void * args)
 					msg.subtype = MSG_KEYSCAN_KEY_RELEASE_ALL;
 					if (app_send_message(&msg)) {
 						is_vk_pressed = false;
-						break;	// 退出循环
 					} else {
 						LOGE("KEYSCAN", "send message failed");	// ！！！！按键释放未发送成功，需要再次发送
 					}
-				} else {
-					break;
 				}
+				break;
 			} 
-			// 有键按下,处理按键
-			else {
-				// 单键按下
-				if (key_num == 1) {		
-					if(keys_pressed[0]->is_changed) {
-						if (keys_pressed[0]->state == KEY_DOWN) {		// 单键按下
-							msg.subtype = MSG_KEYSCAN_KEY_PRESSED;
-							msg.param = get_one_key(keys_pressed[0]->code);
-							// 发送系统消息
-							if (msg.param != 0) {
-								if (app_send_message(&msg) == false) {
-									LOGE("KEYSCAN", "send message failed");
-								}
-								is_vk_pressed = true;
-							}	
-						}
-						if (keys_pressed[0]->state == KEY_HOLD) {		// 单键长按
-							msg.subtype = MSG_KEYSCAN_KEY_HOLD;
-							msg.param = get_one_key(keys_pressed[0]->code);
-							// 发送系统消息
-							if (msg.param != 0) {
-								if (app_send_message(&msg) == false) {
-									LOGE("KEYSCAN", "send message failed");
-								}
-								is_vk_pressed = true;
-							}	
-						}
-						// LOGI("KEYSCAN", "vk: 1 key pressed:%2X, scan code = %d", msg.param, keys_pressed[0]->code);
-					}
-				}
-				// 双键按下
-				if (key_num == 2) {				
-					if (keys_pressed[0]->is_changed || keys_pressed[1]->is_changed) {
-						// 双键按下
-						if (keys_pressed[0]->state == KEY_DOWN && keys_pressed[1]->state == KEY_DOWN) {
-							msg.subtype = MSG_KEYSCAN_KEY_PRESSED;
-							msg.param = get_combin_key(keys_pressed[0]->code, keys_pressed[1]->code);
-							// 发送系统消息
-							if (msg.param != 0) {
-								if (app_send_message(&msg) == false) {
-									LOGE("KEYSCAN", "send message failed");
-								}
-								is_vk_pressed = true;
-							}
-						}	
-						// 双键长按
-						if (keys_pressed[0]->state == KEY_HOLD && keys_pressed[1]->state == KEY_HOLD) {
-							msg.subtype = MSG_KEYSCAN_KEY_HOLD;
-							msg.param = get_combin_key(keys_pressed[0]->code, keys_pressed[1]->code);
-							// 发送系统消息
-							if (msg.param != 0) {
-								if (app_send_message(&msg) == false) {
-									LOGE("KEYSCAN", "send message failed");
-								}
-								is_vk_pressed = true;
-							}
-						}												
-						// LOGI("KEYSCAN", "vk: 2 key pressed:%2X, scan code = %d,%d", msg.param, keys_pressed[0]->code, keys_pressed[1]->code);
-					}
-				}
-				// 3键及更多按键按下
-				if (key_num > 2) {
-					continue;
-				}						
+			// 单键按下
+			if (key_num == 1) {		
+				 kscan_one_key(&msg);
 			}
+			// 双键按下
+			if (key_num == 2) {	
+				kscan_two_key(&msg);											
+			}
+			// 3键及更多按键按下
+			if (key_num > 2) {
+				continue;
+			}						
 			// aos_sem_wait(&sem_keyscan_start, AOS_WAIT_FOREVER);
 			// // 按键超时, 任意按键按下超过5S
 			// if ((csi_kernel_get_ticks() - t1) > 5000) {
@@ -534,7 +548,8 @@ void keyscan_task(void * args)
 			// }
 
 			// 延时
-			csi_kernel_delay_ms(50);
+			aos_msleep(50 - (aos_now_ms() - start));
+			// csi_kernel_delay_ms(50);
 		}
 		// 使能中断,非睡眠时也能启动键盘扫描
 		kscan_row_interrupt_enable();
