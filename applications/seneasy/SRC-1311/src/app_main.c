@@ -95,6 +95,22 @@ void on_msg_key(kscan_key_t vk, int16_t state)
     if (vk == VK_KEY_FUNC2 && state == MSG_KEYSCAN_KEY_HOLD) {
         rcu_ble_clear_pairing();
     } 
+    if (vk == VK_KEY_FUNC3 && state == MSG_KEYSCAN_KEY_HOLD) {
+        LOGI("APP", "Enter direct test mode.");
+        // rcu_ble_clear_pairing();
+
+        disableSleepInPM(0xFF);
+        /* close wdt */
+        extern void boot_wdt_close(void);
+        boot_wdt_close();
+
+        rf_phy_direct_print();
+        rf_phy_dtm_init(NULL);
+
+        while(1){
+            rf_phy_dtm_ext_tx_mod_burst(0x1f, 24, 0, 0, 0x3F, 100, 1);
+        }
+    } 
     
     // 发码键处理
     if (g_gap_data.state == GAP_STATE_PAIRED || g_gap_data.state == GAP_STATE_CONNECTED) {

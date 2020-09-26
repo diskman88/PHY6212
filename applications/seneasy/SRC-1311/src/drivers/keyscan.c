@@ -339,6 +339,7 @@ static const uint8_t kscan_combin_key_map[5][4] = {
 	//scan code1, scan code2, key code, hold times
 	{ 11,	3, 		VK_KEY_FUNC1, 2},	// (home + menu),2S ==>FUNC1
 	{ 11,	6,		VK_KEY_FUNC2, 5},	// (OK + menu), 5S ==>FUNC2
+	{ 11,	4,		VK_KEY_FUNC3, 5},	// (OK + menu), 5S ==>FUNC2
 	// { 5,	2, 		VK_KEY_FUNC2},
 	{ 0, 	0,		0, 0},
 };
